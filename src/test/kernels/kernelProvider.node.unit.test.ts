@@ -23,7 +23,6 @@ import {
     IExtensionContext,
     IWatchableJupyterSettings
 } from '../../platform/common/types';
-import { IStatusProvider } from '../../platform/progress/types';
 import { createEventHandler } from '../common.node';
 import { mockedVSCodeNamespaces } from '../vscode-mock';
 
@@ -35,9 +34,7 @@ suite('KernelProvider Node', () => {
     let notebookProvider: INotebookProvider;
     let configService: IConfigurationService;
     let appShell: IApplicationShell;
-    let outputTracker: CellOutputDisplayIdTracker;
     let vscNotebook: IVSCodeNotebook;
-    let statusProvider: IStatusProvider;
     let context: IExtensionContext;
     let onDidCloseNotebookDocument: EventEmitter<NotebookDocument>;
     const sampleUri1 = Uri.file('sample1.ipynb');
@@ -68,9 +65,7 @@ suite('KernelProvider Node', () => {
         notebookProvider = mock<INotebookProvider>();
         configService = mock<IConfigurationService>();
         appShell = mock<IApplicationShell>();
-        outputTracker = mock<CellOutputDisplayIdTracker>();
         vscNotebook = mock<IVSCodeNotebook>();
-        statusProvider = mock<IStatusProvider>();
         context = mock<IExtensionContext>();
         const configSettings = mock<IWatchableJupyterSettings>();
         when(vscNotebook.onDidCloseNotebookDocument).thenReturn(onDidCloseNotebookDocument.event);
@@ -87,9 +82,7 @@ suite('KernelProvider Node', () => {
             instance(notebookProvider),
             instance(configService),
             instance(appShell),
-            instance(outputTracker),
             instance(vscNotebook),
-            instance(statusProvider),
             instance(context),
             [],
             []
@@ -101,12 +94,12 @@ suite('KernelProvider Node', () => {
             instance(configService),
             instance(appShell),
             instance(vscNotebook),
-            instance(statusProvider),
             []
         );
     });
     teardown(async () => {
         when(mockedVSCodeNamespaces.workspace.notebookDocuments).thenReturn([]);
+        CellOutputDisplayIdTracker.dispose();
         disposeAllDisposables(disposables);
         await asyncDisposables.dispose();
     });
