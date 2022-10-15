@@ -20,7 +20,7 @@ import {
 import { DebugLocationTracker } from './debugLocationTracker';
 import { sendTelemetryEvent, Telemetry } from '../../telemetry';
 import { IDebuggingManager, IJupyterDebugService, KernelDebugMode } from './debuggingTypes';
-import { IKernel } from '../../kernels/types';
+import { IKernel, IKernelProvider } from '../../kernels/types';
 import { parseDataFrame } from '../../kernels/variables/pythonVariableRequester';
 import {
     IConditionalJupyterVariables,
@@ -57,7 +57,8 @@ export class DebuggerVariables
         @inject(IConfigurationService) private configService: IConfigurationService,
         @inject(IVSCodeNotebook) private readonly vscNotebook: IVSCodeNotebook,
         @inject(IVariableScriptGenerator) private readonly varScriptGenerator: IVariableScriptGenerator,
-        @inject(IDataFrameScriptGenerator) private readonly dfScriptGenerator: IDataFrameScriptGenerator
+        @inject(IDataFrameScriptGenerator) private readonly dfScriptGenerator: IDataFrameScriptGenerator,
+        @inject(IKernelProvider) private readonly kernelProvider: IKernelProvider
     ) {
         super(undefined);
         this.debuggingManager.onDoneDebugging(() => this.refreshEventEmitter.fire(), this);
@@ -80,9 +81,9 @@ export class DebuggerVariables
         if (kernel) {
             this.watchKernel(kernel);
         }
-
+        const execution = kernel && this.kernelProvider.getKernelExecution(kernel);
         const result: IJupyterVariablesResponse = {
-            executionCount: kernel ? kernel.executionCount : request.executionCount,
+            executionCount: execution ? execution.executionCount : request.executionCount,
             pageStartIndex: 0,
             pageResponse: [],
             totalCount: 0,

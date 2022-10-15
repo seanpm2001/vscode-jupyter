@@ -26,6 +26,7 @@ import type { Kernel } from '@jupyterlab/services';
 import { CellExecutionCreator, NotebookCellExecutionWrapper } from './execution/cellExecutionCreator';
 import { JupyterNotebookView } from '../platform/common/constants';
 import { mockedVSCodeNamespaces } from '../test/vscode-mock';
+import { NotebookKernelExecution } from './kernelExecution';
 
 suite('Kernel ReConnect Failed Monitor', () => {
     const disposables: IDisposable[] = [];
@@ -85,6 +86,8 @@ suite('Kernel ReConnect Failed Monitor', () => {
             kind: 'startUsingRemoteKernelSpec',
             serverId: '1234'
         };
+        const notebookKernelExecution = mock<NotebookKernelExecution>();
+        when(kernelProvider.getKernelExecution(anything())).thenReturn(instance(notebookKernelExecution));
         when(kernelConnection.connectionStatusChanged).thenReturn(kernelConnectionStatusSignal);
         when(kernel.disposed).thenReturn(false);
         when(kernel.disposing).thenReturn(false);
@@ -92,11 +95,11 @@ suite('Kernel ReConnect Failed Monitor', () => {
         when(kernel.resourceUri).thenReturn(Uri.file('test.ipynb'));
         when(session.kernel).thenReturn(instance(kernelConnection));
         when(kernel.kernelConnectionMetadata).thenReturn(connectionMetadata);
-        when(kernel.onPreExecute).thenReturn(onPreExecute.event);
+        when(notebookKernelExecution.onPreExecute).thenReturn(onPreExecute.event);
         when(kernel.onRestarted).thenReturn(onRestarted.event);
         when(kernel.dispose()).thenResolve();
 
-        return { kernel, onPreExecute, onRestarted, kernelConnectionStatusSignal };
+        return { kernel, onPreExecute, onRestarted, kernelConnectionStatusSignal, notebookKernelExecution };
     }
     function createNotebook() {
         const nb = mock<NotebookDocument>();

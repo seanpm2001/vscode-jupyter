@@ -3,7 +3,7 @@
 
 import { NotebookCell } from 'vscode';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { IKernel } from '../../../kernels/types';
+import { INotebookKernelExecution } from '../../../kernels/types';
 import { DebuggingTelemetry } from '../../../notebooks/debugger/constants';
 import { isJustMyCodeNotification } from '../../../notebooks/debugger/debugCellControllers';
 import { IDebuggingDelegate, IKernelDebugAdapter } from '../../../notebooks/debugger/debuggingTypes';
@@ -24,7 +24,7 @@ export class DebugCellController implements IDebuggingDelegate {
     constructor(
         private readonly debugAdapter: IKernelDebugAdapter,
         public readonly debugCell: NotebookCell,
-        private readonly kernel: IKernel
+        private readonly execution: INotebookKernelExecution
     ) {
         sendTelemetryEvent(DebuggingTelemetry.successfullyStartedRunAndDebugCell);
     }
@@ -49,13 +49,13 @@ export class DebugCellController implements IDebuggingDelegate {
         const metadata = getInteractiveCellMetadata(this.debugCell);
         if (request.command === 'setBreakpoints' && metadata && metadata.generatedCode && !this.cellDumpInvoked) {
             if (!this.debugCellDumped) {
-                this.debugCellDumped = cellDebugSetup(this.kernel, this.debugAdapter);
+                this.debugCellDumped = cellDebugSetup(this.execution, this.debugAdapter);
             }
             await this.debugCellDumped;
         }
         if (request.command === 'configurationDone' && metadata && metadata.generatedCode) {
             if (!this.debugCellDumped) {
-                this.debugCellDumped = cellDebugSetup(this.kernel, this.debugAdapter);
+                this.debugCellDumped = cellDebugSetup(this.execution, this.debugAdapter);
             }
             await this.debugCellDumped;
             this._ready.resolve();

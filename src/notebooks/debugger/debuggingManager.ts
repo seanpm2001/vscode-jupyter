@@ -339,7 +339,7 @@ export class DebuggingManager
                             adapter,
                             cell,
                             this.commandManager,
-                            kernel!,
+                            this.kernelProvider.getKernelExecution(kernel!),
                             this.configurationService
                         );
                         adapter.setDebuggingDelegate(controller);
@@ -347,7 +347,12 @@ export class DebuggingManager
                         this.updateRunByLineContextKeys();
                     } else if (config.__mode === KernelDebugMode.Cell && typeof config.__cellIndex === 'number') {
                         const cell = activeDoc.cellAt(config.__cellIndex);
-                        const controller = new DebugCellController(adapter, cell, kernel!, this.commandManager);
+                        const controller = new DebugCellController(
+                            adapter,
+                            cell,
+                            this.kernelProvider.getKernelExecution(kernel!),
+                            this.commandManager
+                        );
                         adapter.setDebuggingDelegate(controller);
                     }
 

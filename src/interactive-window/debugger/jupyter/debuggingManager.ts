@@ -192,7 +192,7 @@ export class InteractiveWindowDebuggingManager
 
         // Wait till we're attached before resolving the session
         const cell = activeDoc.cellAt(config.__cellIndex);
-        const controller = new DebugCellController(adapter, cell, kernel!);
+        const controller = new DebugCellController(adapter, cell, this.kernelProvider.getKernelExecution(kernel!));
         adapter.setDebuggingDelegate(controller);
         controller.ready
             .then(() => debug.resolve(session))

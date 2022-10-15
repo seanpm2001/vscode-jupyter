@@ -62,11 +62,13 @@ export class KernelAutoReConnectFailedMonitor implements IExtensionSyncActivatio
     }
     private onDidStartKernel(kernel: IKernel) {
         if (!this.kernelsStartedSuccessfully.has(kernel)) {
-            kernel.onPreExecute(
-                (cell) => this.lastExecutedCellPerKernel.set(kernel, cell),
-                this,
-                this.disposableRegistry
-            );
+            this.kernelProvider
+                .getKernelExecution(kernel)
+                .onPreExecute(
+                    (cell) => this.lastExecutedCellPerKernel.set(kernel, cell),
+                    this,
+                    this.disposableRegistry
+                );
 
             if (!kernel.session?.kernel) {
                 return;
