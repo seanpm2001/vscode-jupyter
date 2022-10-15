@@ -47,14 +47,13 @@ export class KernelProvider extends BaseCoreKernelProvider {
     }
 
     public getOrCreate(notebook: NotebookDocument, options: KernelOptions): IKernel {
-        const uri = notebook.uri;
         const existingKernelInfo = this.getInternal(notebook);
         if (existingKernelInfo && existingKernelInfo.options.metadata.id === options.metadata.id) {
             return existingKernelInfo.kernel;
         }
         this.disposeOldKernel(notebook);
 
-        const resourceUri = notebook?.notebookType === InteractiveWindowView ? options.resourceUri : uri;
+        const resourceUri = notebook?.notebookType === InteractiveWindowView ? options.resourceUri : notebook.uri;
         const settings = createKernelSettings(this.configService, resourceUri);
         const kernelExecution = new KernelExecution(
             options.controller,
@@ -67,7 +66,6 @@ export class KernelProvider extends BaseCoreKernelProvider {
             this.formatters
         );
         const kernel = new Kernel(
-            uri,
             resourceUri,
             notebook,
             options.metadata,
@@ -91,7 +89,7 @@ export class KernelProvider extends BaseCoreKernelProvider {
         this.asyncDisposables.push(kernel);
         this.storeKernel(notebook, options, kernel);
 
-        this.deleteMappingIfKernelIsDisposed(uri, kernel);
+        this.deleteMappingIfKernelIsDisposed(kernel);
         return kernel;
     }
 }
