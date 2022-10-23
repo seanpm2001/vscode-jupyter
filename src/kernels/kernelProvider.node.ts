@@ -13,7 +13,6 @@ import {
 } from '../platform/common/types';
 import { BaseCoreKernelProvider, BaseThirdPartyKernelProvider } from './kernelProvider.base';
 import { InteractiveWindowView } from '../platform/common/constants';
-import { sendTelemetryForPythonKernelExecutable } from './helpers.node';
 import { Kernel, ThirdPartyKernel } from './kernel';
 import {
     IThirdPartyKernel,
@@ -76,17 +75,6 @@ export class KernelProvider extends BaseCoreKernelProvider {
             this.appShell,
             options.controller,
             this.startupCodeProviders,
-            () => {
-                if (kernel.session) {
-                    return sendTelemetryForPythonKernelExecutable(
-                        kernel.session,
-                        kernel.resourceUri,
-                        kernel.kernelConnectionMetadata
-                    );
-                } else {
-                    return Promise.resolve();
-                }
-            },
             kernelExecution
         );
         kernel.onRestarted(() => this._onDidRestartKernel.fire(kernel), this, this.disposables);
