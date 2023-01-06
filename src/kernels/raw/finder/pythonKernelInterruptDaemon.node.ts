@@ -185,7 +185,14 @@ export class PythonKernelInterruptDaemon {
                 });
                 this.disposableRegistry.push(new Disposable(() => subscription.unsubscribe()));
             });
-            this.disposableRegistry.push(new Disposable(() => swallowExceptions(() => proc.proc?.kill())));
+            this.disposableRegistry.push(
+                new Disposable(() =>
+                    swallowExceptions(() => {
+                        traceVerbose(`Shutting down Interrupt daemon.`);
+                        proc.proc?.kill();
+                    })
+                )
+            );
             // Added for logging to see if this process dies.
             // We can remove this later if there are no more flaky test failures.
             proc.proc?.on('close', () => traceInfoIfCI('Interrupt daemon closed'));

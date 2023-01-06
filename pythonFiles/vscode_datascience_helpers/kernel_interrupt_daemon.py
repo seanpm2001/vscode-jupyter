@@ -355,10 +355,37 @@ def main():
             logging.exception(f"Error in line {line}")
 
 
+class ExitHooks(object):
+    def __init__(self):
+        self.exit_code = None
+        self.exception = None
+
+    def hook(self):
+        self._orig_exit = sys.exit
+        sys.exit = self.exit
+        sys.excepthook = self.exc_handler
+
+    def exit(self, code=0):
+        self.exit_code = code
+        self._orig_exit(code)
+
+    def exc_handler(self, exc_type, exc, *args):
+        self.exception = exc
+
+
+hooks = ExitHooks()
+hooks.hook()
+
+
 def send_exit_message():
     # Added for logging to see if this process dies.
     # We can remove this later if there are no more flaky test failures.
-    print("INTERRUPTER process exiting")
+    if hooks.exit_code is not None:
+        print("INTERRUPTER process exiting by sys.exit(%d)" % hooks.exit_code)
+    elif hooks.exception is not None:
+        print("INTERRUPTER process exiting by exception: %s" % hooks.exception)
+    else:
+        print("INTERRUPTER process exiting")
 
 
 atexit.register(send_exit_message)
