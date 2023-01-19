@@ -23,6 +23,7 @@ extends:
   template: azure-pipelines/extension/pre-release.yml@templates
   parameters:
     l10nSourcePaths: ./src
+    customNPMRegistry:
     buildSteps:
       - script: npm i -g npm@8.15.1
         displayName: Install npm 8.15.1
