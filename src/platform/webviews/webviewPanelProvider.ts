@@ -21,10 +21,11 @@ class WebviewPanel extends Webview implements IWebviewPanel {
     constructor(
         fs: IFileSystem,
         disposableRegistry: IDisposableRegistry,
+        context: IExtensionContext,
         panelOptions: IWebviewPanelOptions,
         additionalRootPaths: Uri[] = []
     ) {
-        super(fs, disposableRegistry, panelOptions, additionalRootPaths);
+        super(fs, disposableRegistry, context, panelOptions, additionalRootPaths);
     }
 
     public async show(preserveFocus: boolean) {
@@ -126,6 +127,6 @@ export class WebviewPanelProvider implements IWebviewPanelProvider {
         if (Array.isArray(options.additionalPaths)) {
             additionalRootPaths.push(...options.additionalPaths);
         }
-        return new WebviewPanel(this.fs, this.disposableRegistry, options, additionalRootPaths);
+        return new WebviewPanel(this.fs, this.disposableRegistry, this.context, options, additionalRootPaths);
     }
 }
