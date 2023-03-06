@@ -33,3 +33,11 @@ jobs:
       script: |
         ls
   
+      
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      workingDirectory: zeromq.js
+      script: |
+        npm install
+  
