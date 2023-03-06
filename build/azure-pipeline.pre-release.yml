@@ -2,12 +2,15 @@
 trigger: none
 pr: none
 
-
-steps:
-- task: Bash@3
-  inputs:
-    targetType: 'inline'
-    script: |
-      # Write your commands here
-      
-      echo 'Hello world'
+jobs:
+- job:  
+  displayName: Step1
+  pool: 
+    vmImage: 'windows-latest'
+  steps:
+  - task: Bash@3
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Write your commands here      
+        echo 'Hello world'
