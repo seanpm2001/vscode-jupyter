@@ -49,7 +49,14 @@ jobs:
       script: |
         curl -o libsodium.release.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-msvc.zip
 
-      
+
+  - task: Bash@3
+    displayName: Copy Files
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/libsodium.dll C:/Windows/system32
+            
   - task: Bash@3
     displayName: ls
     inputs:
@@ -190,6 +197,14 @@ jobs:
       targetType: 'inline'
       script: |
         cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
+      
+      
+  - task: Bash@3
+    displayName: Copy Files
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/libsodium.dll C:/Windows/system32
       
       
   - task: Bash@3
