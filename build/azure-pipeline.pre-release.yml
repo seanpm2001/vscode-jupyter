@@ -19,31 +19,11 @@ resources:
       endpoint: Monaco
 
 
-extends:
-  template: azure-pipelines/extension/pre-release.yml@templates
-  parameters:
-    l10nSourcePaths: ./src
-    buildSteps:
-      - script: npm i -g npm@8.15.1
-        displayName: Install npm 8.15.1
-
-      - script: npm ci
-        displayName: Install dependencies
-
-      - script: gulp clean
-        displayName: Clean
-
-      - task: UsePythonVersion@0
-        inputs:
-          versionSpec: '3.8'
-          addToPath: true
-          architecture: 'x64'
-
-      - script: python -m pip --disable-pip-version-check install -t ./pythonFiles/lib/python --no-cache-dir --implementation py --no-deps --upgrade -r ./requirements.txt
-        displayName: Install Python libs
-
-      - script: npm run updateBuildNumber
-        displayName: Update build number
-
-      - script: npm run prePublishBundlePreRelease
-        displayName: Build
+steps:
+- task: Bash@3
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Write your commands here
+      
+      echo 'Hello world'
