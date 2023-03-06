@@ -2,22 +2,6 @@
 trigger: none
 pr: none
 
-schedules:
-  - cron: '0 9 * * 1-5' # 9am UTC, Monday-Friday (2am PDT, after VS Code pre-release builds which is 11pm PDT)
-    displayName: Nightly Release Schedule
-    always: true
-    branches:
-      include:
-        - main
-
-resources:
-  repositories:
-    - repository: templates
-      type: github
-      name: microsoft/vscode-engineering
-      ref: main
-      endpoint: Monaco
-
 
 steps:
 - task: Bash@3
