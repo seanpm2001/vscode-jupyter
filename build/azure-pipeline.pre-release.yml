@@ -19,7 +19,12 @@ jobs:
     inputs:
       versionSource: 'spec'
       versionSpec: '18.x'
-      
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+      addToPath: true
+      architecture: 'x64'
+
   - task: Bash@3
     displayName: Git Clone
     inputs:
@@ -117,6 +122,11 @@ jobs:
       versionSource: 'spec'
       versionSpec: '18.x'
       force32bit: true
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+      addToPath: true
+      architecture: 'x86'
       
   - task: Bash@3
     displayName: Git Clone
