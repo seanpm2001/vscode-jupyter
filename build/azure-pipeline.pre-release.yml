@@ -4,7 +4,7 @@ pr: none
 
 jobs:
 - job:  
-  displayName: Step1
+  displayName: Windows 64
   pool: 
     vmImage: 'windows-latest'
   steps:
@@ -90,3 +90,91 @@ jobs:
       script: |
         npm install
   
+
+- job:  
+  displayName: Windows 32
+  pool: 
+    vmImage: 'windows-latest'
+  steps:
+  - task: Bash@3
+    displayName: Test
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Write your commands here      
+        echo 'Hello world'
+  - task: NodeTool@0
+    inputs:
+      versionSource: 'spec'
+      versionSpec: '18.x'
+      force32bit: true
+      
+  - task: Bash@3
+    displayName: Git Clone
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Write your commands here      
+        git clone https://github.com/zeromq/zeromq.js.git
+      
+  - task: Bash@3
+    displayName: ls
+    inputs:
+      targetType: 'inline'
+      workingDirectory: zeromq.js
+      script: |
+        ls
+  
+      
+  - task: Bash@3 
+    displayName: Download libsodium
+    inputs:
+      targetType: 'inline'
+      script: |
+        curl -o libsodium.release.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-msvc.zip
+
+      
+  - task: Bash@3
+    displayName: ls
+    inputs:
+      targetType: 'inline'
+      script: |
+        ls
+
+  - task: ExtractFiles@1
+    inputs:
+      archiveFilePatterns: 'libsodium.release.zip'
+      destinationFolder: 'libsodium.release'
+      cleanDestinationFolder: true
+      overwriteExistingFiles: false
+
+      
+  - task: Bash@3
+    displayName: ls
+    inputs:
+      workingDirectory: libsodium.release
+      targetType: 'inline'
+      script: |
+        ls
+      
+  - task: Bash@3
+    displayName: ls
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js
+      
+      
+  - task: Bash@3
+    displayName: ls
+    inputs:
+      workingDirectory: zeromq.js
+      targetType: 'inline'
+      script: |
+        ls
+  - bash: | 
+      npm install
+    displayName: Install
+    workingDirectory: zeromq.js
+    env:
+      ARCH: x86  
