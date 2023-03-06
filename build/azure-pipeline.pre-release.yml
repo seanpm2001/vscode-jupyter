@@ -69,20 +69,29 @@ jobs:
         ls
       
   - task: Bash@3
-    displayName: ls
+    displayName: Create Directory
     inputs:
       targetType: 'inline'
       script: |
-        cp libsodium.release/libsodium/x64/Release/v142/dynamic/* zeromq.js
+        mkdir -p zeromq.js/build/libzmq-staging
+      
+      
+  - task: Bash@3
+    displayName: Copy Files
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
       
       
   - task: Bash@3
     displayName: ls
     inputs:
-      workingDirectory: zeromq.js
+      workingDirectory: zeromq.js/build/libzmq-staging
       targetType: 'inline'
       script: |
         ls
+        
   - task: Bash@3
     inputs:
       targetType: 'inline'
@@ -158,20 +167,29 @@ jobs:
         ls
       
   - task: Bash@3
-    displayName: ls
+    displayName: Create Directory
     inputs:
       targetType: 'inline'
       script: |
-        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js
+        mkdir -p zeromq.js/build/libzmq-staging
+      
+      
+  - task: Bash@3
+    displayName: Copy Files
+    inputs:
+      targetType: 'inline'
+      script: |
+        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
       
       
   - task: Bash@3
     displayName: ls
     inputs:
-      workingDirectory: zeromq.js
+      workingDirectory: zeromq.js/build/libzmq-staging
       targetType: 'inline'
       script: |
         ls
+
   - bash: | 
       npm install
     displayName: Install
