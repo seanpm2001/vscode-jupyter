@@ -73,7 +73,7 @@ jobs:
     inputs:
       targetType: 'inline'
       script: |
-        cp libsodium.release/x64/Release/v142/dynamic/* zeromq.js
+        cp libsodium.release/libsodium/x64/Release/v142/dynamic/* zeromq.js
       
       
   - task: Bash@3
