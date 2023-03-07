@@ -78,7 +78,7 @@ jobs:
     workingDirectory: zeromq.js
     env:
       ARCH: x86  
-      npm_config_arch: x86
+      npm_config_arch: ia32
 
   - bash: | 
       npm run prebuild
@@ -133,6 +133,55 @@ jobs:
       npm run prebuild
     displayName: Install
     workingDirectory: zeromq.js
+  - task: Bash@3
+    displayName: ls
+    inputs:
+      workingDirectory: zeromq.js/prebuilds
+      targetType: 'inline'
+      script: |
+        ls  
+
+
+- job:  
+  displayName: Mac arm64
+  pool: 
+    vmImage: 'macOS-latest'
+  steps:
+  - task: NodeTool@0
+    inputs:
+      versionSource: 'spec'
+      versionSpec: '18.x'
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.x'
+      addToPath: true
+      
+  - task: Bash@3
+    displayName: Git Clone
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Write your commands here      
+        git clone -b build https://github.com/donjayamanne/zeromq.js.git
+
+  - bash: | 
+      npm install
+    displayName: Install
+    workingDirectory: zeromq.js
+    env:
+      ARCH: arm64  
+
+  # # Ensure we have cmake on the mac machine
+  # - task: CMake@1
+  #   inputs:
+  #     cmakeArgs: --version
+
+  - bash: | 
+      npm run prebuild
+    displayName: Install
+    workingDirectory: zeromq.js
+    env:
+      ARCH: arm64  
   - task: Bash@3
     displayName: ls
     inputs:
