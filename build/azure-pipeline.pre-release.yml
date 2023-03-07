@@ -42,69 +42,69 @@ jobs:
         ls
   
       
-  - task: Bash@3 
-    displayName: Download libsodium
-    inputs:
-      targetType: 'inline'
-      script: |
-        curl -o libsodium.release.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-msvc.zip
+  # - task: Bash@3 
+  #   displayName: Download libsodium
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       curl -o libsodium.release.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-msvc.zip
 
-  - task: Bash@3
-    displayName: ls
-    inputs:
-      targetType: 'inline'
-      script: |
-        ls
+  # - task: Bash@3
+  #   displayName: ls
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       ls
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: 'libsodium.release.zip'
-      destinationFolder: 'libsodium.release'
-      cleanDestinationFolder: true
-      overwriteExistingFiles: false
+  # - task: ExtractFiles@1
+  #   inputs:
+  #     archiveFilePatterns: 'libsodium.release.zip'
+  #     destinationFolder: 'libsodium.release'
+  #     cleanDestinationFolder: true
+  #     overwriteExistingFiles: false
 
       
-  - task: Bash@3
-    displayName: ls
-    inputs:
-      workingDirectory: libsodium.release
-      targetType: 'inline'
-      script: |
-        ls
+  # - task: Bash@3
+  #   displayName: ls
+  #   inputs:
+  #     workingDirectory: libsodium.release
+  #     targetType: 'inline'
+  #     script: |
+  #       ls
 
 
 
-  - task: Bash@3
-    displayName: Create Directory
-    inputs:
-      targetType: 'inline'
-      script: |
-        mkdir -p zeromq.js/build/libzmq-staging
+  # - task: Bash@3
+  #   displayName: Create Directory
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       mkdir -p zeromq.js/build/libzmq-staging
       
       
-  - task: Bash@3
-    displayName: Copy Files
-    inputs:
-      targetType: 'inline'
-      script: |
-        cp libsodium.release/libsodium/x64/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
+  # - task: Bash@3
+  #   displayName: Copy Files
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       cp libsodium.release/libsodium/x64/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
 
 
-  - task: Bash@3
-    displayName: Copy Files
-    inputs:
-      targetType: 'inline'
-      script: |
-        cp libsodium.release/libsodium/x64/Release/v142/dynamic/libsodium.dll C:/Windows/system32
+  # - task: Bash@3
+  #   displayName: Copy Files
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       cp libsodium.release/libsodium/x64/Release/v142/dynamic/libsodium.dll C:/Windows/system32
                   
       
-  - task: Bash@3
-    displayName: ls
-    inputs:
-      workingDirectory: zeromq.js/build/libzmq-staging
-      targetType: 'inline'
-      script: |
-        ls
+  # - task: Bash@3
+  #   displayName: ls
+  #   inputs:
+  #     workingDirectory: zeromq.js/build/libzmq-staging
+  #     targetType: 'inline'
+  #     script: |
+  #       ls
         
   - task: Bash@3
     inputs:
@@ -130,7 +130,7 @@ jobs:
     inputs:
       versionSource: 'spec'
       versionSpec: '18.x'
-      force32bit: true
+      # force32bit: true
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.x'
@@ -154,68 +154,68 @@ jobs:
         ls
   
       
-  - task: Bash@3 
-    displayName: Download libsodium
-    inputs:
-      targetType: 'inline'
-      script: |
-        curl -o libsodium.release.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-msvc.zip
+  # - task: Bash@3 
+  #   displayName: Download libsodium
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       curl -o libsodium.release.zip https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-msvc.zip
 
       
-  - task: Bash@3
-    displayName: ls
-    inputs:
-      targetType: 'inline'
-      script: |
-        ls
+  # - task: Bash@3
+  #   displayName: ls
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       ls
 
-  - task: ExtractFiles@1
-    inputs:
-      archiveFilePatterns: 'libsodium.release.zip'
-      destinationFolder: 'libsodium.release'
-      cleanDestinationFolder: true
-      overwriteExistingFiles: false
+  # - task: ExtractFiles@1
+  #   inputs:
+  #     archiveFilePatterns: 'libsodium.release.zip'
+  #     destinationFolder: 'libsodium.release'
+  #     cleanDestinationFolder: true
+  #     overwriteExistingFiles: false
 
       
-  - task: Bash@3
-    displayName: ls
-    inputs:
-      workingDirectory: libsodium.release
-      targetType: 'inline'
-      script: |
-        ls
+  # - task: Bash@3
+  #   displayName: ls
+  #   inputs:
+  #     workingDirectory: libsodium.release
+  #     targetType: 'inline'
+  #     script: |
+  #       ls
       
-  - task: Bash@3
-    displayName: Create Directory
-    inputs:
-      targetType: 'inline'
-      script: |
-        mkdir -p zeromq.js/build/libzmq-staging
-      
-      
-  - task: Bash@3
-    displayName: Copy Files
-    inputs:
-      targetType: 'inline'
-      script: |
-        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
+  # - task: Bash@3
+  #   displayName: Create Directory
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       mkdir -p zeromq.js/build/libzmq-staging
       
       
-  - task: Bash@3
-    displayName: Copy Files
-    inputs:
-      targetType: 'inline'
-      script: |
-        cp libsodium.release/libsodium/Win32/Release/v142/dynamic/libsodium.dll C:/Windows/system32
+  # - task: Bash@3
+  #   displayName: Copy Files
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       cp libsodium.release/libsodium/Win32/Release/v142/dynamic/* zeromq.js/build/libzmq-staging
       
       
-  - task: Bash@3
-    displayName: ls
-    inputs:
-      workingDirectory: zeromq.js/build/libzmq-staging
-      targetType: 'inline'
-      script: |
-        ls
+  # - task: Bash@3
+  #   displayName: Copy Files
+  #   inputs:
+  #     targetType: 'inline'
+  #     script: |
+  #       cp libsodium.release/libsodium/Win32/Release/v142/dynamic/libsodium.dll C:/Windows/system32
+      
+      
+  # - task: Bash@3
+  #   displayName: ls
+  #   inputs:
+  #     workingDirectory: zeromq.js/build/libzmq-staging
+  #     targetType: 'inline'
+  #     script: |
+  #       ls
 
   - bash: | 
       npm install
@@ -223,3 +223,4 @@ jobs:
     workingDirectory: zeromq.js
     env:
       ARCH: x86  
+      npm_config_arch: x86
