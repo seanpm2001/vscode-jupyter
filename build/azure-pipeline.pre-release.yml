@@ -329,7 +329,7 @@ jobs:
       script: |
           docker pull node:18-alpine
           docker tag node:18-alpine builder
-          docker run --volume $CURRENDIR/zeromq.js:/app --workdir /app --privileged builder -e ARCH=arm64 sh -c "$DOCKERCMD"
+          docker run --volume $CURRENDIR/zeromq.js:/app --workdir /app --privileged builder -e ARCH='arm64' sh -c "$DOCKERCMD"
 
   - task: Bash@3
     displayName: ls
