@@ -399,6 +399,7 @@ jobs:
     workingDirectory: zeromq.js
     env:
       ARCH: arm64  
+      npm_config_arch: arm64
 
   - bash: | 
       npm run prebuild
@@ -406,6 +407,7 @@ jobs:
     workingDirectory: zeromq.js
     env:
       ARCH: arm64  
+      npm_config_arch: arm64
   - task: Bash@3
     displayName: ls
     inputs:
