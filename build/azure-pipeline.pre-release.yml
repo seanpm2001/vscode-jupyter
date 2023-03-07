@@ -124,10 +124,10 @@ jobs:
     displayName: Install
     workingDirectory: zeromq.js
 
-  # Ensure we have cmake on the mac machine
-  - task: CMake@1
-    inputs:
-      cmakeArgs: --version
+  # # Ensure we have cmake on the mac machine
+  # - task: CMake@1
+  #   inputs:
+  #     cmakeArgs: --version
 
   - bash: | 
       npm run prebuild
