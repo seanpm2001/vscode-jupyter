@@ -86,7 +86,7 @@ jobs:
     workingDirectory: zeromq.js
     env:
       ARCH: x86  
-      npm_config_arch: x86
+      npm_config_arch: ia32
 
   - task: Bash@3
     displayName: ls
