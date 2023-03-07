@@ -255,7 +255,7 @@ jobs:
       script: |
           docker pull node:18-alpine
           docker tag node:18-alpine builder
-          docker run --volume $(CURRENDIR)/zeromq.js:/app --workdir /app --privileged builder sh -c "$(DOCKERCMD)"
+          docker run --volume $CURRENDIR/zeromq.js:/app --workdir /app --privileged builder sh -c "$DOCKERCMD"
 
   # - bash: | 
   #     npm install
