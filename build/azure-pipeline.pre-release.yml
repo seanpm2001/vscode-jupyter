@@ -110,7 +110,7 @@ jobs:
     displayName: 'Publish Pipeline Artifact'
     inputs:
       artifactName: win32-ia32
-      targetPath: $(Build.SourcesDirectory)/zeromq.js/prebuilds/win-ia32
+      targetPath: $(Build.SourcesDirectory)/zeromq.js/prebuilds/win32-ia32
     condition: succeeded()
 
 - job:  
