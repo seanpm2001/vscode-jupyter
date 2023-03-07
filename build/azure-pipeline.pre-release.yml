@@ -42,7 +42,7 @@ jobs:
   - task: Bash@3
     displayName: ls
     inputs:
-      workingDirectory: prebuilds
+      workingDirectory: zeromq.js/prebuilds
       targetType: 'inline'
       script: |
         ls  
