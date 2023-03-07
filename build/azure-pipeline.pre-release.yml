@@ -373,8 +373,10 @@ jobs:
 
 - job:  
   displayName: Ubuntu glibc arm64
-  pool: 
-    vmImage: 'ubuntu-latest'
+  pool:
+    name: 1ES_ARM_Agent_Pool
+    vmImage: Ubuntu_2004_ARM64    
+    # vmImage: 'ubuntu-latest'
   steps:
   - task: NodeTool@0
     inputs:
