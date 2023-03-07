@@ -321,7 +321,7 @@ jobs:
     displayName: Setup dependencies
     env:
       CURRENDIR: $(Build.SourcesDirectory)
-      DOCKERCMD: apk add --no-cache pkgconfig curl tar python3 make gcc g++ cmake musl-dev && npm i -g pnpm && pnpm install && pnpm run prebuild
+      DOCKERCMD: apk add --no-cache pkgconfig curl tar python3 make gcc g++ cmake musl-dev && npm i -g pnpm && npm_config_arch=arm64 ARCH=arm64 pnpm install && npm_config_arch=arm64 ARCH=arm64 pnpm run prebuild
       ARCH: arm64  
     inputs:
       targetType: 'inline'
@@ -329,7 +329,7 @@ jobs:
       script: |
           docker pull node:18-alpine
           docker tag node:18-alpine builder
-          docker run --volume $CURRENDIR/zeromq.js:/app --workdir /app --privileged -e ARCH='arm64' builder sh -c "$DOCKERCMD"
+          docker run --volume $CURRENDIR/zeromq.js:/app --workdir /app --privileged -e ARCH='arm64' -e npm_config_arch='arm64' builder sh -c "$DOCKERCMD"
 
   - task: Bash@3
     displayName: ls
