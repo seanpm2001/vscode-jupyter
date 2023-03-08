@@ -41,7 +41,7 @@ jobs:
       targetType: 'inline'
       workingDirectory: zeromq.js
       script: |
-        npm run prebuild
+        node ./script/prebuild.js
   - task: Bash@3
     displayName: ls
     inputs:
@@ -91,7 +91,7 @@ jobs:
       npm_config_arch: ia32
 
   - bash: | 
-      npm run prebuild
+      node ./script/prebuild.js
     displayName: Install
     workingDirectory: zeromq.js
     env:
@@ -141,7 +141,7 @@ jobs:
     workingDirectory: zeromq.js
 
   - bash: | 
-      npm run prebuild
+      node ./script/prebuild.js
     displayName: Install
     workingDirectory: zeromq.js
   - task: Bash@3
@@ -189,7 +189,7 @@ jobs:
       ARCH: arm64  
 
   - bash: | 
-      npm run prebuild
+      node ./script/prebuild.js
     displayName: Install
     workingDirectory: zeromq.js
     env:
@@ -401,7 +401,7 @@ jobs:
       ARCH: x64  
 
   - bash: | 
-      npm run prebuild
+      node ./script/prebuild.js
     displayName: Install
     workingDirectory: zeromq.js
     env:
@@ -444,6 +444,14 @@ jobs:
         # Write your commands here      
         git clone -b build https://github.com/donjayamanne/zeromq.js.git
 
+  - task: Bash@3
+    displayName: Install dependencies
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Write your commands here      
+        apt install gcc-8-aarch64-linux-gnu, g++-8-aarch64-linux-gnu
+
   - bash: | 
       npm install
     displayName: Install
@@ -451,14 +459,21 @@ jobs:
     env:
       ARCH: arm64  
       npm_config_arch: arm64
+      TRIPLE: aarch64-linux-gnu
+      GCC: 8
+      ARCHIVE_SUFFIX: -armv8
 
   - bash: | 
-      npm run prebuild
+      node ./script/prebuild.js
     displayName: Install
     workingDirectory: zeromq.js
     env:
       ARCH: arm64  
       npm_config_arch: arm64
+      TRIPLE: aarch64-linux-gnu
+      GCC: 8
+      ARCHIVE_SUFFIX: -armv8
+
   - task: Bash@3
     displayName: ls
     inputs:
