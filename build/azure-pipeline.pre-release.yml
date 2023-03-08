@@ -435,6 +435,14 @@ jobs:
     inputs:
       versionSpec: '3.x'
       addToPath: true
+
+  - task: Bash@3
+    displayName: Install dependencies
+    inputs:
+      targetType: 'inline'
+      script: |
+        # Write your commands here      
+        sudo apt install gcc-8-aarch64-linux-gnu, g++-8-aarch64-linux-gnu
       
   - task: Bash@3
     displayName: Git Clone
@@ -443,14 +451,6 @@ jobs:
       script: |
         # Write your commands here      
         git clone -b build https://github.com/donjayamanne/zeromq.js.git
-
-  - task: Bash@3
-    displayName: Install dependencies
-    inputs:
-      targetType: 'inline'
-      script: |
-        # Write your commands here      
-        apt install gcc-8-aarch64-linux-gnu, g++-8-aarch64-linux-gnu
 
   - bash: | 
       npm install
