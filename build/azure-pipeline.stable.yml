@@ -19,6 +19,7 @@ extends:
   parameters:
     publishExtension: true
     l10nSourcePaths: ./src
+    l10nShouldProcess: false
     buildPlatforms:
       - linux_arm64
       - linux_x64
