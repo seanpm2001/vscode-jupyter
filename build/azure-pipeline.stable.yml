@@ -25,6 +25,10 @@ extends:
       - windows_32
     buildSteps:
       - script: |
+          echo $(env:VSC_JOB_PLATFORM_NAME)
+        displayName: Install dependencies for zeromq.js for $(env:VSC_JOB_PLATFORM_NAME)
+
+      - script: |
           sudo apt-get update
           sudo apt-get install libpango1.0-dev libgif-dev
         displayName: Install dependencies for zeromq.js
