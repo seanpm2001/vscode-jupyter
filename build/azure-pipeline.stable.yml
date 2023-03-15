@@ -27,7 +27,7 @@ extends:
       - script: |
           sudo apt-get update
           sudo apt-get install libpango1.0-dev libgif-dev
-        displayName: Install dependencies for zeromq.js ${{ parameters.jobPlatformName }}
+        displayName: Install dependencies for zeromq.js ${{ jobPlatformName }}
 
       - script: npm i -g npm@8.15.1
         displayName: Install npm 8.15.1
