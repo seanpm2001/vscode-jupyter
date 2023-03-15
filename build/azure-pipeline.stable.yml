@@ -26,7 +26,7 @@ extends:
       - windows_32
     buildSteps:
       - script: |
-          echo $(env:VSC_JOB_PLATFORM_NAME)
+          echo '$(env:VSC_JOB_PLATFORM_NAME)'
         displayName: Install dependencies for zeromq.js for $(env:VSC_JOB_PLATFORM_NAME)
 
       - script: |
