@@ -20,9 +20,9 @@ extends:
     publishExtension: true
     l10nSourcePaths: ./src
     buildPlatforms:
-      - linux-arm64
-      - linux-x64
-      - windows-32
+      - linux_arm64
+      - linux_x64
+      - windows--_32
     buildSteps:
       - script: |
           sudo apt-get update
