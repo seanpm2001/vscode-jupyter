@@ -22,7 +22,7 @@ extends:
     buildPlatforms:
       - linux_arm64
       - linux_x64
-      - windows--_32
+      - windows_32
     buildSteps:
       - script: |
           sudo apt-get update
