@@ -4,7 +4,7 @@
 import { Kernel, KernelMessage, ServerConnection } from '@jupyterlab/services';
 import { KernelConnection } from '@jupyterlab/services/lib/kernel/default';
 import type { ISignal, Signal } from '@lumino/signaling';
-import * as WebSocketWS from 'ws';
+import type * as WebSocketWS from 'ws';
 import { KernelSocketOptions } from '../../../../kernels/types';
 import { Deferred, createDeferred } from '../../../../platform/common/utils/async';
 import { serializeDataViews, deserializeDataViews } from '../../../../platform/common/utils/serializers';

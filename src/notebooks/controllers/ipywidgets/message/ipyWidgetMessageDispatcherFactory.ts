@@ -3,7 +3,7 @@
 
 import { inject, injectable } from 'inversify';
 import { Event, EventEmitter, NotebookDocument } from 'vscode';
-import { IDisposable, IDisposableRegistry } from '../../../../platform/common/types';
+import { IConfigurationService, IDisposable, IDisposableRegistry } from '../../../../platform/common/types';
 import { IPyWidgetMessages } from '../../../../messageTypes';
 import { IKernel, IKernelProvider } from '../../../../kernels/types';
 import { IPyWidgetMessageDispatcher } from './ipyWidgetMessageDispatcher';
@@ -80,7 +80,8 @@ export class IPyWidgetMessageDispatcherFactory implements IDisposable {
     private disposables: IDisposable[] = [];
     constructor(
         @inject(IDisposableRegistry) disposables: IDisposableRegistry,
-        @inject(IKernelProvider) private readonly kernelProvider: IKernelProvider
+        @inject(IKernelProvider) private readonly kernelProvider: IKernelProvider,
+        @inject(IConfigurationService) private readonly configService: IConfigurationService
     ) {
         disposables.push(this);
 
@@ -96,7 +97,7 @@ export class IPyWidgetMessageDispatcherFactory implements IDisposable {
     public create(document: NotebookDocument): IIPyWidgetMessageDispatcher {
         let baseDispatcher = this.messageDispatchers.get(document);
         if (!baseDispatcher) {
-            baseDispatcher = new IPyWidgetMessageDispatcher(this.kernelProvider, document);
+            baseDispatcher = new IPyWidgetMessageDispatcher(this.kernelProvider, document, this.configService);
             this.messageDispatchers.set(document, baseDispatcher);
 
             // Capture all messages so we can re-play messages that others missed.

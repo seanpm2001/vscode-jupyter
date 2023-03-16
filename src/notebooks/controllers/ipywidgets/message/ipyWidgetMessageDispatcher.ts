@@ -7,7 +7,7 @@ import { Event, EventEmitter, NotebookDocument } from 'vscode';
 import type { Data as WebSocketData } from 'ws';
 import { traceVerbose, traceError } from '../../../../platform/logging';
 import { Identifiers, WIDGET_MIMETYPE } from '../../../../platform/common/constants';
-import { IDisposable } from '../../../../platform/common/types';
+import { IConfigurationService, IDisposable } from '../../../../platform/common/types';
 import { Deferred, createDeferred } from '../../../../platform/common/utils/async';
 import { noop } from '../../../../platform/common/utils/misc';
 import { deserializeDataViews, serializeDataViews } from '../../../../platform/common/utils/serializers';
@@ -68,8 +68,15 @@ export class IPyWidgetMessageDispatcher implements IIPyWidgetMessageDispatcher {
     private fullHandleMessage?: { id: string; promise: Deferred<void> };
     private isUsingIPyWidgets = false;
     private readonly deserialize: (data: string | ArrayBuffer) => KernelMessage.IMessage<KernelMessage.MessageType>;
+    private get disableMessageSyncing(): boolean {
+        return this.configService.getSettings(undefined).disableMessageSyncing === true;
+    }
 
-    constructor(private readonly kernelProvider: IKernelProvider, public readonly document: NotebookDocument) {
+    constructor(
+        private readonly kernelProvider: IKernelProvider,
+        public readonly document: NotebookDocument,
+        private readonly configService: IConfigurationService
+    ) {
         // Always register this comm target.
         // Possible auto start is disabled, and when cell is executed with widget stuff, this comm target will not have
         // been registered, in which case kaboom. As we know this is always required, pre-register this.
@@ -187,10 +194,11 @@ export class IPyWidgetMessageDispatcher implements IIPyWidgetMessageDispatcher {
         this.subscribedToKernelSocket = true;
         // Listen to changes to kernel socket (e.g. restarts or changes to kernel).
         kernel.session.kernelSocket.subscribe((info) => {
-            // Remove old handlers.
-            this.kernelSocketInfo?.socket?.removeReceiveHook(this.onKernelSocketMessage); // NOSONAR
-            this.kernelSocketInfo?.socket?.removeSendHook(this.mirrorSend); // NOSONAR
-
+            if (!this.disableMessageSyncing) {
+                // Remove old handlers.
+                this.kernelSocketInfo?.socket?.removeReceiveHook(this.onKernelSocketMessage); // NOSONAR
+                this.kernelSocketInfo?.socket?.removeSendHook(this.mirrorSend); // NOSONAR
+            }
             if (this.kernelWasConnectedAtLeastOnce) {
                 // this means we restarted the kernel and we now have new information.
                 // Discard all of the messages upto this point.
@@ -212,8 +220,10 @@ export class IPyWidgetMessageDispatcher implements IIPyWidgetMessageDispatcher {
 
             this.kernelWasConnectedAtLeastOnce = true;
             this.kernelSocketInfo = info;
-            this.kernelSocketInfo.socket?.addReceiveHook(this.onKernelSocketMessage); // NOSONAR
-            this.kernelSocketInfo.socket?.addSendHook(this.mirrorSend); // NOSONAR
+            if (!this.disableMessageSyncing) {
+                this.kernelSocketInfo.socket?.addReceiveHook(this.onKernelSocketMessage); // NOSONAR
+                this.kernelSocketInfo.socket?.addSendHook(this.mirrorSend); // NOSONAR
+            }
             this.sendKernelOptions();
             // Since we have connected to a kernel, send any pending messages.
             this.registerCommTargets(kernel);
@@ -231,6 +241,10 @@ export class IPyWidgetMessageDispatcher implements IIPyWidgetMessageDispatcher {
         this.raisePostMessage(IPyWidgetMessages.IPyWidgets_kernelOptions, this.kernelSocketInfo.options);
     }
     private async mirrorSend(data: any, _cb?: (err?: Error) => void): Promise<void> {
+        if (this.disableMessageSyncing) {
+            return;
+        }
+
         // If this is shell control message, mirror to the other side. This is how
         // we get the kernel in the UI to have the same set of futures we have on this side
         if (typeof data === 'string' && data.includes('shell') && data.includes('execute_request')) {
@@ -285,6 +299,9 @@ export class IPyWidgetMessageDispatcher implements IIPyWidgetMessageDispatcher {
         }
     }
     private async onKernelSocketMessage(data: WebSocketData): Promise<void> {
+        if (this.disableMessageSyncing) {
+            return;
+        }
         // Hooks expect serialized data as this normally comes from a WebSocket
 
         const msgUuid = uuid();
