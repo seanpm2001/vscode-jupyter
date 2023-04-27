@@ -49,6 +49,7 @@ export const IControllerRegistration = Symbol('IControllerRegistration');
 export interface IControllerRegistration {
     /**
      * Promise resolved when controllers are done being loaded (refresh makes this promise update)
+     * @deprecated
      */
     readonly loaded: Promise<void>;
     /**
