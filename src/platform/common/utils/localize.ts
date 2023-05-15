@@ -712,7 +712,6 @@ export namespace DataScience {
     export const UserJupyterServerUrlProviderDisplayName = l10n.t('Existing Jupyter Server...');
     export const UserJupyterServerUrlProviderDetail = l10n.t('Connect to an existing Jupyter Server');
     export const UserJupyterServerUrlAlreadyExistError = l10n.t('A Jupyter Server with this URL already exists');
-    export const universalRemoteKernelFinderDisplayName = (serverName: string) => l10n.t('Remote - {0}', serverName);
     export const remoteKernelFinderDisplayName = l10n.t('Current Remote');
     export const kernelPickerSelectKernelTitle = l10n.t('Select Kernel');
     export const kernelPickerSelectLocalKernelSpecTitle = l10n.t('Select a Jupyter Kernel');

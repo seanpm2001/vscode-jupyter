@@ -132,7 +132,10 @@ export function createRemoteConnectionInfo(
         workingDirectory: serverUri?.workingDirectory,
         // For remote jupyter servers that are managed by us, we can provide the auth header.
         // Its crucial this is set to undefined, else password retrieval will not be attempted.
-        getAuthHeader: serverUri && !serverId.startsWith('_builtin') ? () => serverUri?.authorizationHeader : undefined,
+        getAuthHeader:
+            serverUri && !serverId.startsWith('_builtin') && !serverUri?.authorizationHeader
+                ? () => serverUri?.authorizationHeader
+                : undefined,
         getWebsocketProtocols:
             serverUri && !serverId.startsWith('_builtin') ? () => serverUri?.webSocketProtocols || [] : () => [],
         url: uri
