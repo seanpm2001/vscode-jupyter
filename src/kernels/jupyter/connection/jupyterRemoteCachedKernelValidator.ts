@@ -30,7 +30,7 @@ export class JupyterRemoteCachedKernelValidator implements IJupyterRemoteCachedK
             return false;
         }
         const providersPromise = this.providerRegistration.getProviders();
-        const currentList = await this.uriStorage.getSavedUriList();
+        const currentList = await this.uriStorage.getMRU();
         const item = currentList.find((item) => item.serverId === kernel.serverId);
         if (!item) {
             // Server has been removed and we have some old cached data.
@@ -44,9 +44,9 @@ export class JupyterRemoteCachedKernelValidator implements IJupyterRemoteCachedK
             return true;
         }
         const providers = await providersPromise;
-        const provider = providers.find((item) => item.id === info.id);
+        const provider = providers.find((item) => item.id === info.providerId);
         if (!provider) {
-            traceWarning(`Extension may have been uninstalled for provider ${info.id}, handle ${info.handle}`);
+            traceWarning(`Extension may have been uninstalled for provider ${info.providerId}, handle ${info.handle}`);
             return false;
         }
         if (provider.getHandles) {
@@ -55,7 +55,7 @@ export class JupyterRemoteCachedKernelValidator implements IJupyterRemoteCachedK
                 return true;
             } else {
                 traceWarning(
-                    `Hiding remote kernel ${kernel.id} as the remote Jupyter Server ${item.uri} is no longer available`
+                    `Hiding remote kernel ${kernel.id} for ${provider.id} as the remote Jupyter Server ${item.serverId} is no longer available`
                 );
                 // 3rd party extensions own these kernels, if these are no longer
                 // available, then just don't display them.

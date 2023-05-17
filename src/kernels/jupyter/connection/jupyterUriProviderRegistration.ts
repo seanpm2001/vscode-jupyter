@@ -76,18 +76,18 @@ export class JupyterUriProviderRegistration implements IJupyterUriProviderRegist
             }
         };
     }
-    public async getJupyterServerUri(id: string, handle: JupyterServerUriHandle): Promise<IJupyterServerUri> {
+    public async getJupyterServerUri(providerId: string, handle: JupyterServerUriHandle): Promise<IJupyterServerUri> {
         await this.checkOtherExtensions();
 
-        const providerPromise = this.providers.get(id)?.[0];
+        const providerPromise = this.providers.get(providerId)?.[0];
         if (providerPromise) {
             const provider = await providerPromise;
             if (provider.getHandles) {
                 const handles = await provider.getHandles();
                 if (!handles.includes(handle)) {
-                    const extensionId = this.providerExtensionMapping.get(id)!;
-                    const serverId = await computeServerId(generateUriFromRemoteProvider(id, handle));
-                    throw new InvalidRemoteJupyterServerUriHandleError(id, handle, extensionId, serverId);
+                    const extensionId = this.providerExtensionMapping.get(providerId)!;
+                    const serverId = await computeServerId(generateUriFromRemoteProvider(providerId, handle));
+                    throw new InvalidRemoteJupyterServerUriHandleError(providerId, handle, extensionId, serverId);
                 }
             }
             return provider.getServerUri(handle);

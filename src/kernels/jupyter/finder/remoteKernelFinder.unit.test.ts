@@ -136,12 +136,10 @@ suite(`Remote Kernel Finder`, () => {
             serverId: connInfo.baseUrl,
             isValidated: true
         };
-        when(serverUriStorage.getUri()).thenResolve(serverEntry);
-        when(serverUriStorage.getRemoteUri()).thenResolve(serverEntry);
-        when(serverUriStorage.isLocalLaunch).thenReturn(false);
+        when(serverUriStorage.getUriForServer(serverEntry.serverId)).thenResolve(serverEntry);
         const onDidChangeEvent = new EventEmitter<void>();
         disposables.push(onDidChangeEvent);
-        when(serverUriStorage.onDidChangeConnectionType).thenReturn(onDidChangeEvent.event);
+        when(serverUriStorage.onDidChangeMRU).thenReturn(onDidChangeEvent.event);
         cachedRemoteKernelValidator = mock<IJupyterRemoteCachedKernelValidator>();
         when(cachedRemoteKernelValidator.isValid(anything())).thenResolve(true);
         const env = mock<IApplicationEnvironment>();

@@ -103,8 +103,8 @@ export class ControllerRegistration implements IControllerRegistration, IExtensi
             this.disposables
         );
         this.pythonEnvFilter.onDidChange(this.onDidChangeFilter, this, this.disposables);
-        this.serverUriStorage.onDidChangeConnectionType(this.onDidChangeFilter, this, this.disposables);
-        this.serverUriStorage.onDidChangeUri(this.onDidChangeUri, this, this.disposables);
+        this.serverUriStorage.onDidChangeMRU(this.onDidChangeFilter, this, this.disposables);
+        this.serverUriStorage.onDidChangeMRU(this.onDidChangeUri, this, this.disposables);
         this.serverUriStorage.onDidRemoveUris(this.onDidRemoveUris, this, this.disposables);
 
         this.onDidChange(

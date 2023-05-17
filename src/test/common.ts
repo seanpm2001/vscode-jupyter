@@ -3,7 +3,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import type { NotebookDocument, Uri, Event } from 'vscode';
+import type { Uri, Event } from 'vscode';
 import { IExtensionApi } from '../standalone/api/api';
 import { IDisposable } from '../platform/common/types';
 import { IServiceContainer, IServiceManager } from '../platform/ioc/types';
@@ -224,7 +224,7 @@ export function createEventHandler<T, K extends keyof T>(
  */
 export type CommonApi = {
     createTemporaryFile(options: { extension: string; contents?: string }): Promise<{ file: Uri } & IDisposable>;
-    startJupyterServer(notebook?: NotebookDocument, useCert?: boolean): Promise<void>;
+    startJupyterServer(useCert?: boolean): Promise<void>;
     stopJupyterServer?(): Promise<void>;
     captureScreenShot?(contextOrFileName: string | Mocha.Context): Promise<void>;
     initialize(): Promise<IExtensionTestApi>;
@@ -243,8 +243,8 @@ export async function createTemporaryFile(options: {
     return API.createTemporaryFile(options);
 }
 
-export async function startJupyterServer(notebook?: NotebookDocument, useCert: boolean = false): Promise<void> {
-    return API.startJupyterServer(notebook, useCert);
+export async function startJupyterServer(useCert: boolean = false): Promise<void> {
+    return API.startJupyterServer(useCert);
 }
 
 export async function stopJupyterServer() {

@@ -91,7 +91,10 @@ export async function handleExpiredCertsError(
 
 export function createRemoteConnectionInfo(
     uri: string,
-    getJupyterServerUri: (uri: string) => { server: IJupyterServerUri; serverId: string } | undefined
+    info?: {
+        server: IJupyterServerUri;
+        serverId: string;
+    }
 ): IJupyterConnection {
     let url: URL;
     try {
@@ -101,7 +104,6 @@ export function createRemoteConnectionInfo(
         throw err;
     }
 
-    const info = getJupyterServerUri(uri);
     const serverUri = info?.server;
     const serverId = info?.serverId || '';
 
@@ -157,14 +159,14 @@ export function generateUriFromRemoteProvider(id: string, result: JupyterServerU
 
 export function extractJupyterServerHandleAndId(
     uri: string
-): { handle: JupyterServerUriHandle; id: string } | undefined {
+): { handle: JupyterServerUriHandle; providerId: string } | undefined {
     try {
         const url: URL = new URL(uri);
 
         // Id has to be there too.
         const id = url.searchParams.get(Identifiers.REMOTE_URI_ID_PARAM);
         const uriHandle = url.searchParams.get(Identifiers.REMOTE_URI_HANDLE_PARAM);
-        return id && uriHandle ? { handle: uriHandle, id } : undefined;
+        return id && uriHandle ? { handle: uriHandle, providerId: id } : undefined;
     } catch (ex) {
         traceError('Failed to parse remote URI', uri, ex);
     }

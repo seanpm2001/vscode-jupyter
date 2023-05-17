@@ -154,7 +154,8 @@ suite('Kernel Selection @kernelPicker', function () {
         ]);
 
         await startJupyterServer();
-        jupyterServerUri = (await serverUriStorage.getRemoteUri())?.uri;
+        const jupyterServerUris = await serverUriStorage.getMRU();
+        jupyterServerUri = jupyterServerUris.length ? jupyterServerUris[0].uri : undefined;
         sinon.restore();
     });
 
@@ -176,7 +177,7 @@ suite('Kernel Selection @kernelPicker', function () {
         await closeNotebooksAndCleanUpAfterTests(disposables);
         console.log(`End test completed ${this.currentTest?.title}`);
         if (jupyterServerUri) {
-            await serverUriStorage.setUriToRemote(jupyterServerUri, '');
+            await serverUriStorage.addUri(jupyterServerUri, '');
         }
     });
 

@@ -15,7 +15,13 @@ import { Telemetry } from '../telemetry';
 import { endCellAndDisplayErrorsInCell } from './execution/helpers';
 import { getDisplayNameOrNameOfKernelConnection } from './helpers';
 import { sendKernelTelemetryEvent } from './telemetry/sendKernelTelemetryEvent';
-import { IKernel, IKernelProvider, isLocalConnection, RemoteKernelConnectionMetadata } from './types';
+import {
+    IKernel,
+    IKernelProvider,
+    isLocalConnection,
+    isRemoteConnection,
+    RemoteKernelConnectionMetadata
+} from './types';
 import { IJupyterServerUriStorage, IJupyterUriProviderRegistration } from './jupyter/types';
 import { extractJupyterServerHandleAndId } from './jupyter/jupyterUtils';
 
@@ -147,7 +153,7 @@ export class KernelAutoReconnectMonitor implements IExtensionSyncActivationServi
             kernel.kernelConnectionMetadata.kind === 'connectToLiveRemoteKernel' ||
             kernel.kernelConnectionMetadata.kind === 'startUsingRemoteKernelSpec'
         ) {
-            const handled = await this.handleRemoteServerReinitiate(kernel, kernel.kernelConnectionMetadata);
+            const handled = await this.handleRemoteServerReInitiate(kernel, kernel.kernelConnectionMetadata);
 
             if (handled) {
                 return;
@@ -173,11 +179,8 @@ export class KernelAutoReconnectMonitor implements IExtensionSyncActivationServi
 
         // If this is a connection from a uri provider (such as a remote server), then we cannot restart the kernel.
         // Let's request the uri provider to resolve the uri and then reconnect
-        if (
-            kernel.kernelConnectionMetadata.kind === 'connectToLiveRemoteKernel' ||
-            kernel.kernelConnectionMetadata.kind === 'startUsingRemoteKernelSpec'
-        ) {
-            const handled = await this.handleRemoteServerReinitiate(kernel, kernel.kernelConnectionMetadata);
+        if (isRemoteConnection(kernel.kernelConnectionMetadata)) {
+            const handled = await this.handleRemoteServerReInitiate(kernel, kernel.kernelConnectionMetadata);
 
             if (handled) {
                 return;
@@ -205,7 +208,7 @@ export class KernelAutoReconnectMonitor implements IExtensionSyncActivationServi
         }
     }
 
-    private async handleRemoteServerReinitiate(
+    private async handleRemoteServerReInitiate(
         kernel: IKernel,
         metadata: RemoteKernelConnectionMetadata
     ): Promise<boolean> {
@@ -221,7 +224,7 @@ export class KernelAutoReconnectMonitor implements IExtensionSyncActivationServi
             return false;
         }
 
-        const provider = await this.jupyterUriProviderRegistration.getProvider(idAndHandle.id);
+        const provider = await this.jupyterUriProviderRegistration.getProvider(idAndHandle.providerId);
         if (!provider || !provider.getHandles) {
             return false;
         }
@@ -230,7 +233,7 @@ export class KernelAutoReconnectMonitor implements IExtensionSyncActivationServi
             const handles = await provider.getHandles();
 
             if (!handles.includes(idAndHandle.handle)) {
-                await this.serverUriStorage.removeUri(uriItem.uri);
+                await this.serverUriStorage.removeUri(uriItem);
                 this.kernelReconnectProgress.get(kernel)?.dispose();
                 this.kernelReconnectProgress.delete(kernel);
             }

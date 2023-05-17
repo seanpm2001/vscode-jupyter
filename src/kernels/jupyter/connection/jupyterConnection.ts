@@ -41,7 +41,7 @@ export class JupyterConnection implements IExtensionSyncActivationService {
         disposables.push(this);
     }
     public activate() {
-        this.serverUriStorage.onDidChangeConnectionType(
+        this.serverUriStorage.onDidChangeMRU(
             () =>
                 // When server URI changes, clear our pending URI timeouts
                 this.clearTimeouts(),
@@ -71,13 +71,13 @@ export class JupyterConnection implements IExtensionSyncActivationService {
 
     private async getUriFromServerId(serverId: string) {
         // Since there's one server per session, don't use a resource to figure out these settings
-        const savedList = await this.serverUriStorage.getSavedUriList();
+        const savedList = await this.serverUriStorage.getMRU();
         return savedList.find((item) => item.serverId === serverId)?.uri;
     }
     private async createConnectionInfoFromUri(uri: string) {
         // Prepare our map of server URIs
         await this.updateServerUri(uri);
-        return createRemoteConnectionInfo(uri, this.getServerUri.bind(this));
+        return createRemoteConnectionInfo(uri, this.getServerUri(uri));
     }
 
     private async validateRemoteConnection(connection: IJupyterConnection): Promise<void> {
@@ -96,12 +96,12 @@ export class JupyterConnection implements IExtensionSyncActivationService {
         }
     }
 
-    public async updateServerUri(uri: string): Promise<void> {
+    private async updateServerUri(uri: string): Promise<void> {
         const idAndHandle = extractJupyterServerHandleAndId(uri);
         if (idAndHandle) {
             try {
                 const serverUri = await this.jupyterPickerRegistration.getJupyterServerUri(
-                    idAndHandle.id,
+                    idAndHandle.providerId,
                     idAndHandle.handle
                 );
                 this.uriToJupyterServerUri.set(uri, serverUri);
@@ -118,9 +118,9 @@ export class JupyterConnection implements IExtensionSyncActivationService {
                     throw ex;
                 }
                 const serverId = await computeServerId(
-                    generateUriFromRemoteProvider(idAndHandle.id, idAndHandle.handle)
+                    generateUriFromRemoteProvider(idAndHandle.providerId, idAndHandle.handle)
                 );
-                throw new RemoteJupyterServerUriProviderError(idAndHandle.id, idAndHandle.handle, ex, serverId);
+                throw new RemoteJupyterServerUriProviderError(idAndHandle.providerId, idAndHandle.handle, ex, serverId);
             }
         }
     }
@@ -129,7 +129,7 @@ export class JupyterConnection implements IExtensionSyncActivationService {
         const idAndHandle = extractJupyterServerHandleAndId(uri);
         if (idAndHandle) {
             const server = this.uriToJupyterServerUri.get(uri);
-            return server ? { server, serverId: idAndHandle.id } : undefined;
+            return server ? { server, serverId: idAndHandle.providerId } : undefined;
         }
     }
 }

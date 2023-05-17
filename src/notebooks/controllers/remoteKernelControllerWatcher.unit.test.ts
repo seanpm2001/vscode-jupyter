@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { assert } from 'chai';
-import { anything, instance, mock, verify, when } from 'ts-mockito';
+import { anything, capture, instance, mock, verify, when } from 'ts-mockito';
 import { EventEmitter } from 'vscode';
 import { computeServerId, generateUriFromRemoteProvider } from '../../kernels/jupyter/jupyterUtils';
 import {
@@ -117,7 +117,7 @@ suite('RemoteKernelControllerWatcher', () => {
             instance(remoteLiveKernel)
         ]);
 
-        when(uriStorage.getSavedUriList()).thenResolve([
+        when(uriStorage.getMRU()).thenResolve([
             { time: 1, serverId, uri: remoteUriForProvider1, displayName: 'Something' }
         ]);
 
@@ -162,9 +162,12 @@ suite('RemoteKernelControllerWatcher', () => {
         await onDidChangeHandles!();
 
         assert.isOk(onDidChangeHandles, 'onDidChangeHandles should be defined');
-        verify(uriStorage.removeUri(remoteUriForProvider1)).once();
+        verify(uriStorage.removeUri(anything())).once();
         verify(localKernel.dispose()).never();
         verify(remoteKernelSpec.dispose()).once();
         verify(remoteLiveKernel.dispose()).once();
+        const removeEntry = capture(uriStorage.removeUri).first()[0];
+        assert.strictEqual(removeEntry.serverId, serverId);
+        assert.strictEqual(removeEntry.uri, remoteUriForProvider1);
     });
 });

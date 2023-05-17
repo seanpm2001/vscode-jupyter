@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { inject, injectable, named } from 'inversify';
-import { Event, EventEmitter, Memento } from 'vscode';
+import { EventEmitter, Memento } from 'vscode';
 import {
     IWorkspaceService,
     IEncryptedStorage,
@@ -17,26 +17,19 @@ import {
     IsWebExtension,
     IConfigurationService
 } from '../../../platform/common/types';
-import { noop } from '../../../platform/common/utils/misc';
-import { traceError, traceInfoIfCI, traceVerbose } from '../../../platform/logging';
+import { traceVerbose } from '../../../platform/logging';
 import { computeServerId, extractJupyterServerHandleAndId } from '../jupyterUtils';
 import { IJupyterServerUriEntry, IJupyterServerUriStorage, IJupyterUriProviderRegistration } from '../types';
-
-export const mementoKeyToIndicateIfConnectingToLocalKernelsOnly = 'connectToLocalKernelsOnly';
-export const currentServerHashKey = 'currentServerHash';
-
 /**
  * Class for storing Jupyter Server URI values
  */
 @injectable()
 export class JupyterServerUriStorage implements IJupyterServerUriStorage {
     private lastSavedList?: Promise<IJupyterServerUriEntry[]>;
-    private currentUriPromise: Promise<IJupyterServerUriEntry | undefined> | undefined;
-    private _currentServerId: string | undefined;
-    private _localOnly: boolean = false;
-    private _onDidChangeUri = new EventEmitter<void>();
-    public get onDidChangeUri() {
-        return this._onDidChangeUri.event;
+    private: Promise<IJupyterServerUriEntry | undefined> | undefined;
+    private _onDidChangeMRU = new EventEmitter<void>();
+    public get onDidChangeMRU() {
+        return this._onDidChangeMRU.event;
     }
     private _onDidRemoveUris = new EventEmitter<IJupyterServerUriEntry[]>();
     public get onDidRemoveUris() {
@@ -45,15 +38,6 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
     private _onDidAddUri = new EventEmitter<IJupyterServerUriEntry>();
     public get onDidAddUri() {
         return this._onDidAddUri.event;
-    }
-    public get currentServerId(): string | undefined {
-        return this._currentServerId;
-    }
-    public get onDidChangeConnectionType(): Event<void> {
-        return this._onDidChangeUri.event;
-    }
-    public get isLocalLaunch(): boolean {
-        return this._localOnly;
     }
     constructor(
         @inject(IWorkspaceService) private readonly workspaceService: IWorkspaceService,
@@ -65,26 +49,10 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
         @inject(IConfigurationService) readonly configService: IConfigurationService,
         @inject(IJupyterUriProviderRegistration)
         private readonly jupyterPickerRegistration: IJupyterUriProviderRegistration
-    ) {
-        // Remember if local only
-        traceInfoIfCI(`JupyterServerUriStorage: isWebExtension: ${isWebExtension}`);
-        traceInfoIfCI(
-            `Global memento: ${this.globalMemento.get<boolean>(
-                mementoKeyToIndicateIfConnectingToLocalKernelsOnly,
-                true
-            )}`
-        );
-        this._localOnly = isWebExtension
-            ? false
-            : this.globalMemento.get<boolean>(mementoKeyToIndicateIfConnectingToLocalKernelsOnly, true);
-        this._currentServerId = this.globalMemento.get<string | undefined>(currentServerHashKey, undefined);
-
-        // Cache our current state so we don't keep asking for it from the encrypted storage
-        this.getUri().catch(noop);
-    }
-    public async addServerToUriList(serverId: string, time: number) {
+    ) {}
+    public async updateMru(serverId: string) {
         // Start with saved list.
-        const uriList = await this.getSavedUriList();
+        const uriList = await this.getMRU();
 
         // Check if we have already found a display name for this server
         const existingEntry = uriList.find((entry) => {
@@ -95,24 +63,21 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
             throw new Error(`Uri not found for Server Id ${serverId}`);
         }
 
-        await this.addToUriList(existingEntry.uri, time, existingEntry.displayName || '');
+        const displayName = existingEntry.displayName || '';
+        const uri = existingEntry.uri;
+        await this.addToUriList(uri, displayName);
     }
-    public async addToUriList(uri: string, time: number, displayName: string) {
+    private async addToUriList(uri: string, displayName: string) {
         // Uri list is saved partially in the global memento and partially in encrypted storage
 
         // Start with saved list.
-        const uriList = await this.getSavedUriList();
+        const uriList = await this.getMRU();
 
         // Compute server id for saving in the list
         const serverId = await computeServerId(uri);
 
         // Check if we have already found a display name for this server
-        const existingEntry = uriList.find((entry) => {
-            return entry.serverId === serverId;
-        });
-        if (existingEntry && existingEntry.displayName) {
-            displayName = existingEntry.displayName;
-        }
+        displayName = uriList.find((entry) => entry.serverId === serverId)?.displayName || displayName;
 
         // Remove this uri if already found (going to add again with a new time)
         const editedList = uriList.filter((f, i) => {
@@ -120,32 +85,18 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
         });
 
         // Add this entry into the last.
-        const entry = { uri, time, serverId, displayName: displayName || uri, isValidated: true };
+        const entry = { uri, time: Date.now(), serverId, displayName: displayName || uri, isValidated: true };
         editedList.push(entry);
-
-        if (this.currentUriPromise) {
-            const currentUri = await this.currentUriPromise;
-            if (currentUri && currentUri.uri === uri) {
-                this.currentUriPromise = Promise.resolve(entry);
-            }
-        }
 
         // Signal that we added in the entry
         this._onDidAddUri.fire(entry);
 
         return this.updateMemento(editedList);
     }
-    public async removeUri(uri: string) {
-        const activeUri = await this.getUri();
-        // Start with saved list.
-        const uriList = await this.getSavedUriList();
-
-        const editedList = uriList.filter((f) => f.uri !== uri);
-        await this.updateMemento(editedList);
-        if (activeUri?.uri === uri) {
-            await this.setUriToLocal();
-        }
-        const removedItem = uriList.find((f) => f.uri === uri);
+    public async removeUri(entry: IJupyterServerUriEntry) {
+        const uriList = await this.getMRU();
+        await this.updateMemento(uriList.filter((f) => f.serverId !== entry.serverId));
+        const removedItem = uriList.find((f) => f.serverId === entry.serverId);
         if (removedItem) {
             this._onDidRemoveUris.fire([removedItem]);
         }
@@ -184,7 +135,7 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
             blob
         );
     }
-    public async getSavedUriList(): Promise<IJupyterServerUriEntry[]> {
+    public async getMRU(): Promise<IJupyterServerUriEntry[]> {
         if (this.lastSavedList) {
             return this.lastSavedList;
         }
@@ -219,15 +170,16 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
                                 isValidated: true
                             };
 
+                            // Backup for old
                             if (uri === Settings.JupyterServerLocalLaunch) {
-                                return server;
+                                return;
                             }
 
                             try {
                                 const idAndHandle = extractJupyterServerHandleAndId(uri);
                                 if (idAndHandle) {
                                     return this.jupyterPickerRegistration
-                                        .getJupyterServerUri(idAndHandle.id, idAndHandle.handle)
+                                        .getJupyterServerUri(idAndHandle.providerId, idAndHandle.handle)
                                         .then(
                                             () => server,
                                             () => {
@@ -247,7 +199,7 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
                     );
 
                     traceVerbose(`Found ${result.length} saved URIs, ${JSON.stringify(result)}`);
-                    return result;
+                    return result.filter((item) => !!item) as IJupyterServerUriEntry[];
                 }
             }
             return [];
@@ -256,8 +208,8 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
         return this.lastSavedList;
     }
 
-    public async clearUriList(): Promise<void> {
-        const uriList = await this.getSavedUriList();
+    public async clearMRU(): Promise<void> {
+        const uriList = await this.getMRU();
         this.lastSavedList = Promise.resolve([]);
         // Clear out memento and encrypted storage
         await this.globalMemento.update(Settings.JupyterServerUriList, []);
@@ -274,107 +226,21 @@ export class JupyterServerUriStorage implements IJupyterServerUriStorage {
             })
         );
     }
-    public getUri(): Promise<IJupyterServerUriEntry | undefined> {
-        if (!this.currentUriPromise) {
-            this.currentUriPromise = this.getUriInternal();
-        }
-
-        return this.currentUriPromise;
-    }
-    public async getRemoteUri(): Promise<IJupyterServerUriEntry | undefined> {
-        try {
-            const uri = await this.getUri();
-            traceInfoIfCI(`getRemoteUri: ${uri?.uri}`);
-            if (uri?.uri === Settings.JupyterServerLocalLaunch) {
-                return;
-            }
-            return uri;
-        } catch (e) {
-            traceError(`Exception getting uri: ${e}`);
-            return;
-        }
-    }
     public async getUriForServer(id: string): Promise<IJupyterServerUriEntry | undefined> {
-        const savedList = await this.getSavedUriList();
-        const uriItem = savedList.find((item) => item.serverId === id);
-
-        return uriItem;
+        const savedList = await this.getMRU();
+        return savedList.find((item) => item.serverId === id);
     }
-    public async setUriToLocal(): Promise<void> {
-        traceInfoIfCI(`setUriToLocal`);
-        await this.setUri(Settings.JupyterServerLocalLaunch, undefined);
-    }
-    public async setUriToRemote(uri: string, displayName: string): Promise<void> {
+    public async addUri(uri: string, displayName: string): Promise<void> {
         // Make sure to add to the saved list before we set the uri. Otherwise
         // handlers for the URI changing will use the saved list to make sure the
         // server id matches
-        await this.addToUriList(uri, Date.now(), displayName);
-        await this.setUri(uri, displayName);
+        await this.addToUriList(uri, displayName);
+        this._onDidChangeMRU.fire(); // Needs to happen as soon as we change so that dependencies update synchronously
+
+        // Save in the storage (unique account per workspace)
+        const key = await this.getUriAccountKey();
+        await this.encryptedStorage.store(Settings.JupyterServerRemoteLaunchService, key, uri);
     }
-
-    public async setUriToNone(): Promise<void> {
-        traceInfoIfCI(`setUriToNone`);
-        return this.setUri(undefined, undefined);
-    }
-
-    public async setUri(uri: string | undefined, displayName: string | undefined) {
-        // Set the URI as our current state
-        this._currentServerId = uri ? await computeServerId(uri) : undefined;
-        const entry: IJupyterServerUriEntry | undefined =
-            uri && this._currentServerId
-                ? {
-                      uri,
-                      time: Date.now(),
-                      serverId: this._currentServerId,
-                      displayName: displayName || uri,
-                      isValidated: true
-                  }
-                : undefined;
-
-        this.currentUriPromise = Promise.resolve(entry);
-        traceInfoIfCI(`setUri: ${uri}`);
-        this._localOnly = (uri === Settings.JupyterServerLocalLaunch || uri === undefined) && !this.isWebExtension;
-        this._onDidChangeUri.fire(); // Needs to happen as soon as we change so that dependencies update synchronously
-
-        // No update the async parts
-        await this.globalMemento.update(mementoKeyToIndicateIfConnectingToLocalKernelsOnly, this._localOnly);
-        await this.globalMemento.update(currentServerHashKey, this._currentServerId);
-
-        if (!this._localOnly && uri) {
-            // disaplay name is wrong here
-            await this.addToUriList(uri, Date.now(), displayName ?? uri);
-
-            // Save in the storage (unique account per workspace)
-            const key = await this.getUriAccountKey();
-            await this.encryptedStorage.store(Settings.JupyterServerRemoteLaunchService, key, uri);
-        }
-    }
-    private async getUriInternal(): Promise<IJupyterServerUriEntry | undefined> {
-        const savedList = await this.getSavedUriList();
-        if (this.isLocalLaunch) {
-            return (
-                savedList.find((item) => item.uri === Settings.JupyterServerLocalLaunch) ?? {
-                    uri: Settings.JupyterServerLocalLaunch,
-                    time: Date.now(),
-                    serverId: '',
-                    displayName: 'local',
-                    isValidated: true
-                }
-            );
-        } else {
-            // Should be stored in encrypted storage based on the workspace
-            const key = await this.getUriAccountKey();
-            const storedUri = await this.encryptedStorage.retrieve(Settings.JupyterServerRemoteLaunchService, key);
-
-            // Update server id if not already set
-            if (!this._currentServerId && storedUri) {
-                this._currentServerId = await computeServerId(storedUri);
-            }
-
-            return savedList.find((item) => item.serverId === this._currentServerId);
-        }
-    }
-
     /**
      * Returns a unique identifier for the current workspace
      */

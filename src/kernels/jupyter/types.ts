@@ -270,27 +270,15 @@ export interface IJupyterServerUriEntry {
 
 export const IJupyterServerUriStorage = Symbol('IJupyterServerUriStorage');
 export interface IJupyterServerUriStorage {
-    isLocalLaunch: boolean;
-    onDidChangeConnectionType: Event<void>;
-    readonly currentServerId: string | undefined;
-    readonly onDidChangeUri: Event<void>;
+    readonly onDidChangeMRU: Event<void>;
     readonly onDidRemoveUris: Event<IJupyterServerUriEntry[]>;
     readonly onDidAddUri: Event<IJupyterServerUriEntry>;
-    addToUriList(uri: string, time: number, displayName: string): Promise<void>;
-    /**
-     * Adds a server to the MRU list.
-     * Similar to `addToUriList` however one does not need to pass the `Uri` nor the `displayName`.
-     * As Uri could contain sensitive information and `displayName` would have already been setup.
-     */
-    addServerToUriList(serverId: string, time: number): Promise<void>;
-    getSavedUriList(): Promise<IJupyterServerUriEntry[]>;
-    removeUri(uri: string): Promise<void>;
-    clearUriList(): Promise<void>;
-    getRemoteUri(): Promise<IJupyterServerUriEntry | undefined>;
+    updateMru(serverId: string): Promise<void>;
+    getMRU(): Promise<IJupyterServerUriEntry[]>;
+    removeUri(entry: IJupyterServerUriEntry): Promise<void>;
+    clearMRU(): Promise<void>;
     getUriForServer(id: string): Promise<IJupyterServerUriEntry | undefined>;
-    setUriToLocal(): Promise<void>;
-    setUriToRemote(uri: string, displayName: string): Promise<void>;
-    setUriToNone(): Promise<void>;
+    addUri(uri: string, displayName: string): Promise<void>;
 }
 
 export interface IBackupFile {

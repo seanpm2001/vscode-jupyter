@@ -19,7 +19,6 @@ import { IExtensionSyncActivationService } from '../../../platform/activation/ty
 import { RemoteKernelFinder } from './remoteKernelFinder';
 import { ContributedKernelFinderKind } from '../../internalTypes';
 import { RemoteKernelSpecsCacheKey } from '../../common/commonFinder';
-import { Settings } from '../../../platform/common/constants';
 import { JupyterConnection } from '../connection/jupyterConnection';
 
 @injectable()
@@ -45,7 +44,7 @@ export class RemoteKernelFinderController implements IExtensionSyncActivationSer
     activate() {
         // Add in the URIs that we already know about
         this.serverUriStorage
-            .getSavedUriList()
+            .getMRU()
             .then((currentServers) => {
                 currentServers.forEach(this.createRemoteKernelFinder.bind(this));
 
@@ -61,11 +60,6 @@ export class RemoteKernelFinderController implements IExtensionSyncActivationSer
     createRemoteKernelFinder(serverUri: IJupyterServerUriEntry) {
         if (!serverUri.isValidated) {
             // when server uri is validated, an `onDidAddUri` event will be fired.
-            return;
-        }
-
-        if (serverUri.uri === Settings.JupyterServerLocalLaunch) {
-            // 'local' uri is not a remote server.
             return;
         }
 

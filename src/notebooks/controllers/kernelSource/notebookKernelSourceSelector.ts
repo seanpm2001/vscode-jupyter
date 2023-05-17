@@ -58,7 +58,7 @@ enum KernelFinderEntityQuickPickType {
 interface ContributedKernelFinderQuickPickItem extends QuickPickItem {
     type: KernelFinderEntityQuickPickType.KernelFinder;
     serverUri: string;
-    idAndHandle: { id: string; handle: string };
+    idAndHandle: { providerId: string; handle: string };
     kernelFinderInfo: IContributedKernelFinder;
 }
 
@@ -181,7 +181,7 @@ export class NotebookKernelSourceSelector implements INotebookKernelSourceSelect
         multiStep: IMultiStepInput<MultiStepResult>,
         state: MultiStepResult
     ): Promise<InputStep<MultiStepResult> | void> {
-        const savedURIList = await this.serverUriStorage.getSavedUriList();
+        const savedURIList = await this.serverUriStorage.getMRU();
 
         if (token.isCancellationRequested) {
             return;
@@ -198,7 +198,7 @@ export class NotebookKernelSourceSelector implements INotebookKernelSourceSelect
             if (savedURI) {
                 const idAndHandle = extractJupyterServerHandleAndId(savedURI.uri);
 
-                if (idAndHandle && idAndHandle.id === provider.id) {
+                if (idAndHandle && idAndHandle.providerId === provider.id) {
                     // local server
                     const uriDate = new Date(savedURI.time);
                     items.push({
@@ -335,7 +335,7 @@ export class NotebookKernelSourceSelector implements INotebookKernelSourceSelect
             if (token.isCancellationRequested) {
                 throw new CancellationError();
             }
-            await this.serverSelector.setJupyterURIToRemote(uri);
+            await this.serverSelector.addRemoteUri(uri);
             if (token.isCancellationRequested) {
                 throw new CancellationError();
             }
