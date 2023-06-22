@@ -308,7 +308,8 @@ export async function createEmptyPythonNotebook(
     await openAndShowNotebook(nbFile);
     assert.isOk(vscodeNotebook.activeNotebookEditor, 'No active notebook');
     if (!dontWaitForKernel) {
-        await waitForKernelToGetAutoSelected(vscodeNotebook.activeNotebookEditor!, PYTHON_LANGUAGE);
+        await selectDefaultController(vscodeNotebook.activeNotebookEditor!);
+        // await waitForKernelToGetAutoSelected(vscodeNotebook.activeNotebookEditor!, PYTHON_LANGUAGE);
         await verifySelectedControllerIsRemoteForRemoteTests();
     }
     await deleteAllCellsAndWait();
