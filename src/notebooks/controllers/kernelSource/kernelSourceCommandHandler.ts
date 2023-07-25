@@ -16,7 +16,7 @@ import {
 import { DisplayOptions } from '../../../kernels/displayOptions';
 import { isPythonKernelConnection, isUserRegisteredKernelSpecConnection } from '../../../kernels/helpers';
 import { ContributedKernelFinderKind } from '../../../kernels/internalTypes';
-import { IJupyterUriProviderRegistration } from '../../../kernels/jupyter/types';
+import { IInternalJupyterUriProvider, IJupyterUriProviderRegistration } from '../../../kernels/jupyter/types';
 import { initializeInteractiveOrNotebookTelemetryBasedOnUserAction } from '../../../kernels/telemetry/helper';
 import { sendKernelTelemetryEvent } from '../../../kernels/telemetry/sendKernelTelemetryEvent';
 import {
@@ -56,7 +56,10 @@ import {
 @injectable()
 export class KernelSourceCommandHandler implements IExtensionSyncActivationService {
     private localDisposables: IDisposable[] = [];
-    private readonly providerMappings = new Map<string, IDisposable[]>();
+    private readonly providerMappings = new Map<
+        string,
+        { disposables: IDisposable[]; provider: IInternalJupyterUriProvider }
+    >();
     private kernelSpecsSourceRegistered = false;
     constructor(
         @inject(IControllerRegistration) private readonly controllerRegistration: IControllerRegistration,
@@ -170,13 +173,14 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
         const uriRegistration = ServiceContainer.instance.get<IJupyterUriProviderRegistration>(
             IJupyterUriProviderRegistration
         );
-        const existingItems = new Set<string>();
+        const validProviderIds = new Set<string>();
         uriRegistration.providers.map((provider) => {
+            const id = `${provider.extensionId}.${provider.id}`;
             if (provider.id === TestingKernelPickerProviderId) {
                 return;
             }
-            existingItems.add(provider.id);
-            if (this.providerMappings.has(provider.id)) {
+            validProviderIds.add(id);
+            if (this.providerMappings.has(id)) {
                 return;
             }
             const providerItemNb = notebooks.registerKernelSourceActionProvider(JupyterNotebookView, {
@@ -219,12 +223,12 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
             });
             this.localDisposables.push(providerItemNb);
             this.localDisposables.push(providerItemIW);
-            this.providerMappings.set(provider.id, [providerItemNb, providerItemIW]);
+            this.providerMappings.set(id, { disposables: [providerItemNb, providerItemIW], provider });
         });
-        this.providerMappings.forEach((disposables, providerId) => {
-            if (!existingItems.has(providerId)) {
+        this.providerMappings.forEach(({ disposables }, id) => {
+            if (!validProviderIds.has(id)) {
                 disposeAllDisposables(disposables);
-                this.providerMappings.delete(providerId);
+                this.providerMappings.delete(id);
             }
         });
     }
@@ -265,7 +269,11 @@ export class KernelSourceCommandHandler implements IExtensionSyncActivationServi
         const selector = ServiceContainer.instance.get<IRemoteNotebookKernelSourceSelector>(
             IRemoteNotebookKernelSourceSelector
         );
-        const kernel = await selector.selectRemoteKernel(notebook, extensionId, providerId);
+        const provider = this.providerMappings.get(`${extensionId}.${providerId}`)?.provider;
+        if (!provider) {
+            throw new Error(`Remote Provider Id ${`${extensionId}.${providerId}`} not found`);
+        }
+        const kernel = await selector.selectRemoteKernel(notebook, provider);
         return this.getSelectedController(notebook, kernel);
     }
     private async getSelectedController(notebook: NotebookDocument, kernel?: KernelConnectionMetadata) {

@@ -19,7 +19,6 @@ import { JupyterServerSelector } from '../../../kernels/jupyter/connection/serve
 import {
     IJupyterServerUriStorage,
     IInternalJupyterUriProvider,
-    IJupyterUriProviderRegistration,
     IRemoteKernelFinder
 } from '../../../kernels/jupyter/types';
 import { IKernelFinder, KernelConnectionMetadata, RemoteKernelConnectionMetadata } from '../../../kernels/types';
@@ -73,24 +72,17 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
     private cancellationTokenSource: CancellationTokenSource | undefined;
     constructor(
         @inject(IKernelFinder) private readonly kernelFinder: IKernelFinder,
-        @inject(IJupyterUriProviderRegistration)
-        private readonly uriProviderRegistration: IJupyterUriProviderRegistration,
         @inject(IJupyterServerUriStorage) private readonly serverUriStorage: IJupyterServerUriStorage,
         @inject(JupyterServerSelector) private readonly serverSelector: JupyterServerSelector,
         @inject(JupyterConnection) private readonly jupyterConnection: JupyterConnection
     ) {}
     public async selectRemoteKernel(
         notebook: NotebookDocument,
-        extensionId: string,
-        providerId: string
+        provider: IInternalJupyterUriProvider
     ): Promise<RemoteKernelConnectionMetadata | undefined> {
         // Reject if it's not our type
         if (notebook.notebookType !== JupyterNotebookView && notebook.notebookType !== InteractiveWindowView) {
             return;
-        }
-        const provider = await this.uriProviderRegistration.getProvider(extensionId, providerId);
-        if (!provider) {
-            throw new Error(`Remote Provider Id ${providerId} not found`);
         }
         this.localDisposables.forEach((d) => d.dispose());
         this.localDisposables = [];
@@ -131,43 +123,53 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
     ): Promise<InputStep<MultiStepResult> | void> {
         const servers = this.kernelFinder.registered.filter((info) => info.kind === 'remote') as IRemoteKernelFinder[];
         const items: (ContributedKernelFinderQuickPickItem | KernelProviderItemsQuickPickItem | QuickPickItem)[] = [];
+        const serverQuickPickItems: (typeof items)[0][] = [];
 
-        for (const server of servers) {
-            // remote server
-            const savedURI = await this.serverUriStorage.get(server.serverUri.provider);
-            if (token.isCancellationRequested) {
-                return;
-            }
+        const savedServerQuickPickItemsPromise = (async () => {
+            const serverItems: ((typeof serverQuickPickItems)[0] & { uriDate: Date })[] = [];
+            await Promise.all(
+                servers.map(async (server) => {
+                    // remote server
+                    const savedURI = await this.serverUriStorage.get(server.serverUri.provider);
+                    if (token.isCancellationRequested) {
+                        return;
+                    }
 
-            const idAndHandle = savedURI?.provider;
-            if (idAndHandle && idAndHandle.id === provider.id) {
-                // local server
-                const uriDate = new Date(savedURI.time);
-                items.push({
-                    type: KernelFinderEntityQuickPickType.KernelFinder,
-                    kernelFinderInfo: server,
-                    idAndHandle,
-                    label: server.displayName,
-                    detail: DataScience.jupyterSelectURIMRUDetail(uriDate),
-                    buttons: provider.removeHandle
-                        ? [
-                              {
-                                  iconPath: new ThemeIcon('trash'),
-                                  tooltip: DataScience.removeRemoteJupyterServerEntryInQuickPick
-                              }
-                          ]
-                        : []
-                });
-            }
-        }
+                    const idAndHandle = savedURI?.provider;
+                    if (idAndHandle && idAndHandle.id === provider.id) {
+                        // local server
+                        const uriDate = new Date(savedURI.time);
+                        serverItems.push({
+                            uriDate,
+                            type: KernelFinderEntityQuickPickType.KernelFinder,
+                            kernelFinderInfo: server,
+                            idAndHandle,
+                            label: server.displayName,
+                            detail: DataScience.jupyterSelectURIMRUDetail(uriDate),
+                            buttons: provider.removeHandle
+                                ? [
+                                      {
+                                          iconPath: new ThemeIcon('trash'),
+                                          tooltip: DataScience.removeRemoteJupyterServerEntryInQuickPick
+                                      }
+                                  ]
+                                : []
+                        });
+                    }
+                })
+            );
 
-        if (provider.getQuickPickEntryItems && provider.handleQuickPick) {
-            if (items.length > 0) {
-                items.push({ label: 'More', kind: QuickPickItemKind.Separator });
-            }
+            // Sort to display most recent on top.
+            serverItems.sort((a, b) => (a.uriDate.getTime() - b.uriDate.getTime() > 0 ? -1 : 1));
+            serverQuickPickItems.push(...serverItems);
+        })();
 
-            const newProviderItems: KernelProviderItemsQuickPickItem[] = (await provider.getQuickPickEntryItems()).map(
-                (i) => {
+        const getServerCreationItems = async () => {
+            const serverItems: typeof items = [];
+            if (provider.getQuickPickEntryItems && provider.handleQuickPick) {
+                const newProviderItems: KernelProviderItemsQuickPickItem[] = (
+                    await provider.getQuickPickEntryItems()
+                ).map((i) => {
                     return {
                         ...i,
                         provider: provider,
@@ -175,9 +177,17 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
                         description: undefined,
                         originalItem: i
                     };
-                }
-            );
-            items.push(...newProviderItems);
+                });
+                serverItems.push(...newProviderItems);
+            }
+            return serverItems;
+        };
+
+        const [serverCreationItems] = await Promise.all([getServerCreationItems(), savedServerQuickPickItemsPromise]);
+        items.push(...serverQuickPickItems);
+        if (serverCreationItems.length > 0) {
+            items.push({ label: 'More', kind: QuickPickItemKind.Separator });
+            items.push(...serverCreationItems);
         }
 
         const onDidChangeItems = new EventEmitter<typeof items>();
