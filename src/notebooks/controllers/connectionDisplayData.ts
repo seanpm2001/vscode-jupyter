@@ -40,8 +40,8 @@ export async function getRemoteServerDisplayName(
         .getProvider(kernelConnection.serverProviderHandle.extensionId, kernelConnection.serverProviderHandle.id)
         .catch(noop);
 
-    const server = provider?.getServerUriWithoutAuth
-        ? await provider?.getServerUriWithoutAuth(kernelConnection.serverProviderHandle.handle).catch(noop)
+    const server = provider?.getServerUriWithoutAuthInfo
+        ? await provider?.getServerUriWithoutAuthInfo(kernelConnection.serverProviderHandle.handle).catch(noop)
         : await provider?.getServerUri(kernelConnection.serverProviderHandle.handle).catch(noop);
 
     // We only show this if we have a display name and the name is not the same as the URI (this prevents showing the long token for user entered URIs).

@@ -809,7 +809,7 @@ Failed to run jupyter as observable with args notebook --no-browser --notebook-d
                 applicationShell.showErrorMessage(anything(), anything(), anything(), anything(), anything())
             ).thenResolve();
             const provider = mock<IInternalJupyterUriProvider>();
-            when(provider.getServerUriWithoutAuth).thenReturn(undefined);
+            when(provider.getServerUriWithoutAuthInfo).thenReturn(undefined);
             when(provider.getServerUri(anything())).thenResolve({
                 baseUrl: error.baseUrl,
                 displayName: 'Server Display Name',
@@ -896,7 +896,7 @@ Failed to run jupyter as observable with args notebook --no-browser --notebook-d
                 applicationShell.showErrorMessage(anything(), anything(), anything(), anything(), anything())
             ).thenResolve();
             const provider = mock<IInternalJupyterUriProvider>();
-            when(provider.getServerUriWithoutAuth).thenReturn(undefined);
+            when(provider.getServerUriWithoutAuthInfo).thenReturn(undefined);
             when(provider.getServerUri(anything())).thenResolve({
                 baseUrl: 'http://localhost:1234/',
                 displayName: 'Hello Server',
@@ -947,7 +947,7 @@ Failed to run jupyter as observable with args notebook --no-browser --notebook-d
             ).thenResolve(DataScience.removeRemoteJupyterConnectionButtonText as any);
             when(uriStorage.remove(anything())).thenResolve();
             const provider = mock<IInternalJupyterUriProvider>();
-            when(provider.getServerUriWithoutAuth).thenReturn(undefined);
+            when(provider.getServerUriWithoutAuthInfo).thenReturn(undefined);
             when(provider.getServerUri(anything())).thenResolve({
                 baseUrl: 'http://localhost:1234/',
                 displayName: 'Hello Server',
@@ -989,7 +989,7 @@ Failed to run jupyter as observable with args notebook --no-browser --notebook-d
             ).thenResolve(DataScience.changeRemoteJupyterConnectionButtonText as any);
             when(cmdManager.executeCommand(anything(), anything(), anything(), anything())).thenResolve();
             const provider = mock<IInternalJupyterUriProvider>();
-            when(provider.getServerUriWithoutAuth).thenReturn(undefined);
+            when(provider.getServerUriWithoutAuthInfo).thenReturn(undefined);
             when(provider.getServerUri(anything())).thenResolve({
                 baseUrl: 'http://localhost:1234/',
                 displayName: 'Hello Server',
@@ -1030,7 +1030,7 @@ Failed to run jupyter as observable with args notebook --no-browser --notebook-d
                 applicationShell.showErrorMessage(anything(), anything(), anything(), anything(), anything())
             ).thenResolve(DataScience.selectDifferentKernel as any);
             const provider = mock<IInternalJupyterUriProvider>();
-            when(provider.getServerUriWithoutAuth).thenReturn(undefined);
+            when(provider.getServerUriWithoutAuthInfo).thenReturn(undefined);
             when(provider.getServerUri(anything())).thenResolve({
                 baseUrl: 'http://localhost:1234/',
                 displayName: 'Hello Server',

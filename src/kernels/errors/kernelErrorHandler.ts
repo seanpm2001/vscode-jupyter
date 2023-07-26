@@ -241,8 +241,8 @@ export abstract class DataScienceErrorHandler implements IDataScienceErrorHandle
             .getProvider(error.serverProviderHandle.extensionId, error.serverProviderHandle.id)
             .catch(noop);
         if (provider) {
-            const server = provider.getServerUriWithoutAuth
-                ? await provider.getServerUriWithoutAuth(error.serverProviderHandle.handle)
+            const server = provider.getServerUriWithoutAuthInfo
+                ? await provider.getServerUriWithoutAuthInfo(error.serverProviderHandle.handle)
                 : await provider.getServerUri(error.serverProviderHandle.handle);
             displayName = server.displayName;
         }
@@ -264,8 +264,8 @@ export abstract class DataScienceErrorHandler implements IDataScienceErrorHandle
             .getProvider(error.serverProviderHandle.extensionId, error.serverProviderHandle.id)
             .catch(noop);
         if (provider) {
-            const server = provider.getServerUriWithoutAuth
-                ? await provider.getServerUriWithoutAuth(error.serverProviderHandle.handle).catch(noop)
+            const server = provider.getServerUriWithoutAuthInfo
+                ? await provider.getServerUriWithoutAuthInfo(error.serverProviderHandle.handle).catch(noop)
                 : await provider.getServerUri(error.serverProviderHandle.handle).catch(noop);
             displayName = server?.displayName || displayName;
         }
@@ -363,8 +363,8 @@ export abstract class DataScienceErrorHandler implements IDataScienceErrorHandle
             ) {
                 return KernelInterpreterDependencyResponse.selectDifferentKernel;
             }
-            const server = provider.getServerUriWithoutAuth
-                ? await provider.getServerUriWithoutAuth(err.serverProviderHandle.handle).catch(noop)
+            const server = provider.getServerUriWithoutAuthInfo
+                ? await provider.getServerUriWithoutAuthInfo(err.serverProviderHandle.handle).catch(noop)
                 : await provider.getServerUri(err.serverProviderHandle.handle).catch(noop);
             const baseUrl = err instanceof RemoteJupyterServerConnectionError ? err.baseUrl : '';
             const idAndHandle = `${err.serverProviderHandle.id}:${err.serverProviderHandle.handle}`;
