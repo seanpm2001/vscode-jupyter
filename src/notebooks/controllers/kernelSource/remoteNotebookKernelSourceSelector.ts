@@ -19,7 +19,6 @@ import { JupyterServerSelector } from '../../../kernels/jupyter/connection/serve
 import {
     IJupyterServerUriStorage,
     IInternalJupyterUriProvider,
-    IJupyterUriProviderRegistration,
     IRemoteKernelFinder
 } from '../../../kernels/jupyter/types';
 import { IKernelFinder, KernelConnectionMetadata, RemoteKernelConnectionMetadata } from '../../../kernels/types';
@@ -73,24 +72,17 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
     private cancellationTokenSource: CancellationTokenSource | undefined;
     constructor(
         @inject(IKernelFinder) private readonly kernelFinder: IKernelFinder,
-        @inject(IJupyterUriProviderRegistration)
-        private readonly uriProviderRegistration: IJupyterUriProviderRegistration,
         @inject(IJupyterServerUriStorage) private readonly serverUriStorage: IJupyterServerUriStorage,
         @inject(JupyterServerSelector) private readonly serverSelector: JupyterServerSelector,
         @inject(JupyterConnection) private readonly jupyterConnection: JupyterConnection
     ) {}
     public async selectRemoteKernel(
         notebook: NotebookDocument,
-        extensionId: string,
-        providerId: string
+        provider: IInternalJupyterUriProvider
     ): Promise<RemoteKernelConnectionMetadata | undefined> {
         // Reject if it's not our type
         if (notebook.notebookType !== JupyterNotebookView && notebook.notebookType !== InteractiveWindowView) {
             return;
-        }
-        const provider = await this.uriProviderRegistration.getProvider(extensionId, providerId);
-        if (!provider) {
-            throw new Error(`Remote Provider Id ${providerId} not found`);
         }
         this.localDisposables.forEach((d) => d.dispose());
         this.localDisposables = [];
