@@ -3,12 +3,13 @@
 
 import { EventEmitter } from 'vscode';
 import { getKernelRegistrationInfo } from '../../kernels/helpers';
-import { IJupyterServerUriStorage } from '../../kernels/jupyter/types';
+import { IJupyterUriProviderRegistration } from '../../kernels/jupyter/types';
 import { KernelConnectionMetadata, RemoteKernelConnectionMetadata } from '../../kernels/types';
 import { IDisposable } from '../../platform/common/types';
 import { DataScience } from '../../platform/common/utils/localize';
 import { EnvironmentType } from '../../platform/pythonEnvironments/info';
 import { IConnectionDisplayData } from './types';
+import { noop } from '../../platform/common/utils/misc';
 
 export class ConnectionDisplayData implements IDisposable, IConnectionDisplayData {
     private readonly _onDidChange = new EventEmitter<ConnectionDisplayData>();
@@ -33,28 +34,36 @@ export class ConnectionDisplayData implements IDisposable, IConnectionDisplayDat
 // For Remote connections, check if we have a saved display name for the server.
 export async function getRemoteServerDisplayName(
     kernelConnection: RemoteKernelConnectionMetadata,
-    serverUriStorage: IJupyterServerUriStorage
+    jupyterUriProviderRegistration: IJupyterUriProviderRegistration
 ): Promise<string> {
-    const targetConnection = await serverUriStorage.get(kernelConnection.serverProviderHandle);
+    const provider = await jupyterUriProviderRegistration
+        .getProvider(kernelConnection.serverProviderHandle.extensionId, kernelConnection.serverProviderHandle.id)
+        .catch(noop);
+
+    const server = provider?.getServerUriWithoutAuth
+        ? await provider?.getServerUriWithoutAuth(kernelConnection.serverProviderHandle.handle).catch(noop)
+        : await provider?.getServerUri(kernelConnection.serverProviderHandle.handle).catch(noop);
 
     // We only show this if we have a display name and the name is not the same as the URI (this prevents showing the long token for user entered URIs).
-    if (targetConnection && targetConnection.displayName) {
-        return targetConnection.displayName;
-    }
-
-    return DataScience.kernelDefaultRemoteDisplayName;
+    return server?.displayName || DataScience.kernelDefaultRemoteDisplayName;
 }
 
 export async function getKernelConnectionCategory(
     kernelConnection: KernelConnectionMetadata,
-    serverUriStorage: IJupyterServerUriStorage
+    jupyterUriProviderRegistration: IJupyterUriProviderRegistration
 ): Promise<string> {
     switch (kernelConnection.kind) {
         case 'connectToLiveRemoteKernel':
-            const remoteDisplayNameSession = await getRemoteServerDisplayName(kernelConnection, serverUriStorage);
+            const remoteDisplayNameSession = await getRemoteServerDisplayName(
+                kernelConnection,
+                jupyterUriProviderRegistration
+            );
             return DataScience.kernelCategoryForJupyterSession(remoteDisplayNameSession);
         case 'startUsingRemoteKernelSpec':
-            const remoteDisplayNameSpec = await getRemoteServerDisplayName(kernelConnection, serverUriStorage);
+            const remoteDisplayNameSpec = await getRemoteServerDisplayName(
+                kernelConnection,
+                jupyterUriProviderRegistration
+            );
             return DataScience.kernelCategoryForRemoteJupyterKernel(remoteDisplayNameSpec);
         default:
             return getKernelConnectionCategorySync(kernelConnection);

@@ -7,7 +7,7 @@ import {
     getKernelConnectionDisplayPath,
     getRemoteKernelSessionInformation
 } from '../../kernels/helpers';
-import { IJupyterServerUriStorage } from '../../kernels/jupyter/types';
+import { IJupyterUriProviderRegistration } from '../../kernels/jupyter/types';
 import { KernelConnectionMetadata } from '../../kernels/types';
 import { IWorkspaceService } from '../../platform/common/application/types';
 import { IPlatformService } from '../../platform/common/platform/types';
@@ -27,7 +27,8 @@ export class ConnectionDisplayDataProvider implements IConnectionDisplayDataProv
     constructor(
         @inject(IWorkspaceService) private readonly workspace: IWorkspaceService,
         @inject(IPlatformService) private readonly platform: IPlatformService,
-        @inject(IJupyterServerUriStorage) private readonly serverUriStorage: IJupyterServerUriStorage,
+        @inject(IJupyterUriProviderRegistration)
+        private readonly jupyterUriProviderRegistration: IJupyterUriProviderRegistration,
         @inject(IDisposableRegistry) private readonly disposables: IDisposableRegistry
     ) {}
 
@@ -46,7 +47,7 @@ export class ConnectionDisplayDataProvider implements IConnectionDisplayDataProv
         this.details.set(connection.id, details);
 
         if (connection.kind === 'connectToLiveRemoteKernel' || connection.kind === 'startUsingRemoteKernelSpec') {
-            getRemoteServerDisplayName(connection, this.serverUriStorage)
+            getRemoteServerDisplayName(connection, this.jupyterUriProviderRegistration)
                 .then((displayName) => {
                     if (details.serverDisplayName !== displayName) {
                         details.serverDisplayName = displayName;
@@ -58,7 +59,7 @@ export class ConnectionDisplayDataProvider implements IConnectionDisplayDataProv
                 .catch(noop);
         }
 
-        getKernelConnectionCategory(connection, this.serverUriStorage)
+        getKernelConnectionCategory(connection, this.jupyterUriProviderRegistration)
             .then((kind) => {
                 if (details.category !== kind) {
                     details.category = kind;
