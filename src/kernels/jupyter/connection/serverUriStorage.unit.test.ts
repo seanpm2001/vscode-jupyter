@@ -841,7 +841,7 @@ suite('Server Uri Storage', async () => {
         verify(fs.writeFile(anything(), anything())).atLeast(1);
         assert.strictEqual(all.length, 0);
     });
-    test('Add 10 new entries & add 11th, and add mroe and remove', async function () {
+    test('Add 10 new entries & add 11th, and add more and remove', async function () {
         generateDummyData(8, true);
         when(fs.exists(anything())).thenResolve(true);
         when(fs.exists(uriEquals(globalStorageUri))).thenResolve(true);
@@ -932,14 +932,13 @@ suite('Server Uri Storage', async () => {
         }
 
         // Should exist.
-        const server1 = await serverUriStorage.get({
+        const time = await serverUriStorage.getLastUsedDateTime({
             id: UserJupyterServerPickerProviderId,
             handle: 'handle1',
             extensionId: JVSC_EXTENSION_ID
         });
 
-        assert.strictEqual(server1?.provider.id, UserJupyterServerPickerProviderId);
-        assert.strictEqual(server1?.provider.handle, 'handle1');
+        assert.ok(time);
 
         // Remove this.
         await serverUriStorage.remove({
@@ -949,7 +948,7 @@ suite('Server Uri Storage', async () => {
         });
 
         assert.isUndefined(
-            await serverUriStorage.get({
+            await serverUriStorage.getLastUsedDateTime({
                 id: UserJupyterServerPickerProviderId,
                 handle: 'handle1',
                 extensionId: JVSC_EXTENSION_ID
@@ -957,25 +956,24 @@ suite('Server Uri Storage', async () => {
         );
 
         // Bogus
-        const serverBogus = await serverUriStorage.get({
+        const noTime = await serverUriStorage.getLastUsedDateTime({
             id: 'Bogus',
             handle: 'handle1',
             extensionId: JVSC_EXTENSION_ID
         });
 
-        assert.isUndefined(serverBogus);
+        assert.isUndefined(noTime);
 
         // Add and it should exist.
         await serverUriStorage.add({ handle: 'NewHandle11', id: 'NewId11', extensionId: JVSC_EXTENSION_ID });
 
-        const newServer = await serverUriStorage.get({
+        const hastTime = await serverUriStorage.getLastUsedDateTime({
             id: 'NewId11',
             handle: 'NewHandle11',
             extensionId: JVSC_EXTENSION_ID
         });
 
-        assert.strictEqual(newServer?.provider.id, 'NewId11');
-        assert.strictEqual(newServer?.provider.handle, 'NewHandle11');
+        assert.isOk(hastTime);
     });
 
     function generateDummyData(numberOfEntries: number = 2, generateNewDataAsWell: boolean = false) {
@@ -992,7 +990,7 @@ suite('Server Uri Storage', async () => {
             uris.push(`${uri}${Settings.JupyterServerRemoteLaunchNameSeparator}${displayName}`);
             data.push({
                 index,
-                time: index
+                time: Date.now() - 1000 + index
             });
             itemsInNewStorage.push({
                 displayName,
@@ -1001,7 +999,7 @@ suite('Server Uri Storage', async () => {
                     handle: `handle${index + 1}`,
                     extensionId: JVSC_EXTENSION_ID
                 },
-                time: index
+                time: Date.now() - 1000 + index
             });
         }
         when(memento.get(Settings.JupyterServerUriList)).thenReturn(data);

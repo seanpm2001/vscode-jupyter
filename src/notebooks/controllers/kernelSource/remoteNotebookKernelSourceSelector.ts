@@ -132,34 +132,32 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
         const servers = this.kernelFinder.registered.filter((info) => info.kind === 'remote') as IRemoteKernelFinder[];
         const items: (ContributedKernelFinderQuickPickItem | KernelProviderItemsQuickPickItem | QuickPickItem)[] = [];
 
-        for (const server of servers) {
-            // remote server
-            const savedURI = await this.serverUriStorage.get(server.serverUri.provider);
-            if (token.isCancellationRequested) {
-                return;
-            }
-
-            const idAndHandle = savedURI?.provider;
-            if (idAndHandle && idAndHandle.id === provider.id) {
-                // local server
-                const uriDate = new Date(savedURI.time);
-                items.push({
-                    type: KernelFinderEntityQuickPickType.KernelFinder,
-                    kernelFinderInfo: server,
-                    idAndHandle,
-                    label: server.displayName,
-                    detail: DataScience.jupyterSelectURIMRUDetail(uriDate),
-                    buttons: provider.removeHandle
-                        ? [
-                              {
-                                  iconPath: new ThemeIcon('trash'),
-                                  tooltip: DataScience.removeRemoteJupyterServerEntryInQuickPick
-                              }
-                          ]
-                        : []
-                });
-            }
-        }
+        await Promise.all(
+            servers
+                .filter((s) => s.serverUri.provider.id === provider.id)
+                .map(async (server) => {
+                    // remote server
+                    const lastUsedTime = await this.serverUriStorage.getLastUsedDateTime(server.serverUri.provider);
+                    if (token.isCancellationRequested || !lastUsedTime) {
+                        return;
+                    }
+                    items.push({
+                        type: KernelFinderEntityQuickPickType.KernelFinder,
+                        kernelFinderInfo: server,
+                        idAndHandle: server.serverUri.provider,
+                        label: server.displayName,
+                        detail: DataScience.jupyterSelectURIMRUDetail(lastUsedTime),
+                        buttons: provider.removeHandle
+                            ? [
+                                  {
+                                      iconPath: new ThemeIcon('trash'),
+                                      tooltip: DataScience.removeRemoteJupyterServerEntryInQuickPick
+                                  }
+                              ]
+                            : []
+                    });
+                })
+        );
 
         if (provider.getQuickPickEntryItems && provider.handleQuickPick) {
             if (items.length > 0) {
