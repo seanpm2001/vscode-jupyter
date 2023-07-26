@@ -193,14 +193,11 @@ export interface IJupyterServerUriStorage {
     readonly onDidChange: Event<void>;
     readonly onDidRemove: Event<IJupyterServerUriEntry[]>;
     readonly onDidAdd: Event<IJupyterServerUriEntry>;
-    /**
-     * Updates MRU list marking this server as the most recently used.
-     */
-    update(serverProviderHandle: JupyterServerProviderHandle): Promise<void>;
+    updateLastUsedDateTime(serverProviderHandle: JupyterServerProviderHandle): Promise<void>;
+    getLastUsedDateTime(serverProviderHandle: JupyterServerProviderHandle): Promise<Date | undefined>;
     getAll(): Promise<IJupyterServerUriEntry[]>;
     remove(serverProviderHandle: JupyterServerProviderHandle): Promise<void>;
     clear(): Promise<void>;
-    getLastUsedDateTime(serverProviderHandle: JupyterServerProviderHandle): Promise<Date | undefined>;
     add(
         serverProviderHandle: JupyterServerProviderHandle,
         options?: { time: number; displayName: string }

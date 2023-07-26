@@ -769,7 +769,11 @@ suite('Server Uri Storage', async () => {
         const timeOfNewHandle2BeforeUpdate = beforeUpdate.find((item) => item.provider.handle === 'NewHandle2')!;
         assert.ok(timeOfNewHandle2BeforeUpdate);
         await sleep(10);
-        await serverUriStorage.update({ id: 'NewId2', handle: 'NewHandle2', extensionId: JVSC_EXTENSION_ID });
+        await serverUriStorage.updateLastUsedDateTime({
+            id: 'NewId2',
+            handle: 'NewHandle2',
+            extensionId: JVSC_EXTENSION_ID
+        });
         const afterUpdate = await serverUriStorage.getAll();
         const timeOfNewHandle2AfterUpdate = afterUpdate.find((item) => item.provider.handle === 'NewHandle2')!;
         assert.ok(timeOfNewHandle2BeforeUpdate);
@@ -889,7 +893,11 @@ suite('Server Uri Storage', async () => {
         onDidAddEvent.reset();
         onDidRemoveEvent.reset();
         await serverUriStorage.add({ handle: 'NewHandle11', id: 'NewId11', extensionId: JVSC_EXTENSION_ID });
-        await serverUriStorage.update({ id: 'NewId11', handle: 'NewHandle11', extensionId: JVSC_EXTENSION_ID });
+        await serverUriStorage.updateLastUsedDateTime({
+            id: 'NewId11',
+            handle: 'NewHandle11',
+            extensionId: JVSC_EXTENSION_ID
+        });
 
         all = await serverUriStorage.getAll();
         assert.strictEqual(all.length, 10);

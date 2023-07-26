@@ -109,7 +109,9 @@ export class JupyterServerUriStorage extends Disposables implements IJupyterServ
         this.hookupStorageEvents();
         await this.newStorage.migrateMRU();
         const savedList = await this.getAll();
-        const time = savedList.find((item) => item.provider.id === server.id && item.provider.handle === server.handle)?.time;
+        const time = savedList.find(
+            (item) => item.provider.id === server.id && item.provider.handle === server.handle
+        )?.time;
         return time ? new Date(time) : undefined;
     }
     public async add(
@@ -131,7 +133,7 @@ export class JupyterServerUriStorage extends Disposables implements IJupyterServ
         }
         await this.newStorage.add(entry);
     }
-    public async update(server: JupyterServerProviderHandle) {
+    public async updateLastUsedDateTime(server: JupyterServerProviderHandle) {
         this.hookupStorageEvents();
         await this.newStorage.migrateMRU();
         await this.newStorage.update(server);
