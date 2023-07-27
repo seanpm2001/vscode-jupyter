@@ -104,19 +104,17 @@ suite('Remote Execution @kernelCore', function () {
         await deleteAllCellsAndWait();
         await insertCodeCell('print("123412341234")', { index: 0 });
         const cell = editor.notebook.cellAt(0)!;
-        const previousList = await storage.getAll();
+        const previousList = await storage.all;
         await Promise.all([runAllCellsInActiveNotebook(), waitForExecutionCompletedSuccessfully(cell)]);
 
         // Wait for MRU to get updated & encrypted storage to get updated.
-        let newList = previousList;
         await waitForCondition(
             async () => {
-                newList = await storage.getAll();
-                assert.notDeepEqual(previousList, newList, 'MRU not updated');
+                assert.notDeepEqual(previousList, storage.all, 'MRU not updated');
                 return true;
             },
             5_000,
-            () => `MRU not updated, ${JSON.stringify(previousList)} === ${JSON.stringify(newList)}`
+            () => `MRU not updated, ${JSON.stringify(previousList)} === ${JSON.stringify(storage.all)}`
         );
     });
     test('Use same kernel when re-opening notebook', async function () {

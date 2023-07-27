@@ -194,8 +194,7 @@ export interface IJupyterServerUriStorage {
     readonly onDidRemove: Event<IJupyterServerUriEntry[]>;
     readonly onDidAdd: Event<IJupyterServerUriEntry>;
     updateLastUsedDateTime(serverProviderHandle: JupyterServerProviderHandle): Promise<void>;
-    getLastUsedDateTime(serverProviderHandle: JupyterServerProviderHandle): Promise<Date | undefined>;
-    getAll(): Promise<IJupyterServerUriEntry[]>;
+    all: IJupyterServerUriEntry[];
     remove(serverProviderHandle: JupyterServerProviderHandle): Promise<void>;
     clear(): Promise<void>;
     add(

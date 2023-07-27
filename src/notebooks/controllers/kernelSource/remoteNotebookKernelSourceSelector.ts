@@ -124,32 +124,33 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
         const servers = this.kernelFinder.registered.filter((info) => info.kind === 'remote') as IRemoteKernelFinder[];
         const items: (ContributedKernelFinderQuickPickItem | KernelProviderItemsQuickPickItem | QuickPickItem)[] = [];
 
-        await Promise.all(
-            servers
-                .filter((s) => s.serverUri.provider.id === provider.id)
-                .map(async (server) => {
-                    // remote server
-                    const lastUsedTime = await this.serverUriStorage.getLastUsedDateTime(server.serverUri.provider);
-                    if (token.isCancellationRequested || !lastUsedTime) {
-                        return;
-                    }
-                    items.push({
-                        type: KernelFinderEntityQuickPickType.KernelFinder,
-                        kernelFinderInfo: server,
-                        idAndHandle: server.serverUri.provider,
-                        label: server.displayName,
-                        detail: DataScience.jupyterSelectURIMRUDetail(lastUsedTime),
-                        buttons: provider.removeHandle
-                            ? [
-                                  {
-                                      iconPath: new ThemeIcon('trash'),
-                                      tooltip: DataScience.removeRemoteJupyterServerEntryInQuickPick
-                                  }
-                              ]
-                            : []
-                    });
-                })
-        );
+        servers
+            .filter((s) => s.serverUri.provider.id === provider.id)
+            .map(async (server) => {
+                // remote server
+                const lastUsedTime = this.serverUriStorage.all.find(
+                    (item) =>
+                        `${item.provider.extensionId}${item.provider.id}` === `${provider.extensionId}${provider.id}`
+                )?.time;
+                if (token.isCancellationRequested || !lastUsedTime) {
+                    return;
+                }
+                items.push({
+                    type: KernelFinderEntityQuickPickType.KernelFinder,
+                    kernelFinderInfo: server,
+                    idAndHandle: server.serverUri.provider,
+                    label: server.displayName,
+                    detail: DataScience.jupyterSelectURIMRUDetail(new Date(lastUsedTime)),
+                    buttons: provider.removeHandle
+                        ? [
+                              {
+                                  iconPath: new ThemeIcon('trash'),
+                                  tooltip: DataScience.removeRemoteJupyterServerEntryInQuickPick
+                              }
+                          ]
+                        : []
+                });
+            });
 
         if (provider.getQuickPickEntryItems && provider.handleQuickPick) {
             if (items.length > 0) {

@@ -49,10 +49,10 @@ export class RemoteKernelControllerWatcher implements IExtensionSyncActivationSe
         if (!provider.getHandles) {
             return;
         }
-        const [handles, uris] = await Promise.all([provider.getHandles(), this.uriStorage.getAll()]);
+        const handles = await provider.getHandles();
         const serverJupyterProviderMap = new Map<string, { providerId: string; handle: string }>();
         await Promise.all(
-            uris
+            this.uriStorage.all
                 .filter(
                     (item) => item.provider.extensionId === provider.extensionId && item.provider.id === provider.id
                 )

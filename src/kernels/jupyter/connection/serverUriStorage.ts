@@ -22,6 +22,8 @@ import { IFileSystem } from '../../../platform/common/platform/types';
 import * as path from '../../../platform/vscode-path/resources';
 import { noop } from '../../../platform/common/utils/misc';
 import { Disposables } from '../../../platform/common/utils';
+import { swallowExceptions } from '../../../platform/common/utils/decorators';
+import { IExtensionSyncActivationService } from '../../../platform/activation/types';
 
 export type StorageMRUItem = {
     displayName: string;
@@ -46,7 +48,10 @@ export type StorageMRUItem = {
  * Class for storing Jupyter Server URI values, also manages the MRU list of the servers/urls.
  */
 @injectable()
-export class JupyterServerUriStorage extends Disposables implements IJupyterServerUriStorage {
+export class JupyterServerUriStorage
+    extends Disposables
+    implements IJupyterServerUriStorage, IExtensionSyncActivationService
+{
     private _onDidChangeUri = new EventEmitter<void>();
     public get onDidChange() {
         return this._onDidChangeUri.event;
@@ -62,6 +67,7 @@ export class JupyterServerUriStorage extends Disposables implements IJupyterServ
     private readonly oldStorage: OldStorage;
     private readonly newStorage: NewStorage;
     private storageEventsHooked?: boolean;
+    private items?: IJupyterServerUriEntry[];
     constructor(
         @inject(IEncryptedStorage) encryptedStorage: IEncryptedStorage,
         @inject(IMemento) @named(GLOBAL_MEMENTO) globalMemento: Memento,
@@ -86,40 +92,79 @@ export class JupyterServerUriStorage extends Disposables implements IJupyterServ
         this.disposables.push(this._onDidRemoveUris);
         this.disposables.push(this.newStorage);
     }
+    activate(): void {
+        // Ensure we pre-load the file and cache the results for sync access via the `all` property.
+        // Else when `all` is called the first time we read the file and there could be a slight delay
+        // in reading the contents and providing the items.
+        this.getAll().catch(noop);
+    }
     private hookupStorageEvents() {
         if (this.storageEventsHooked) {
             return;
         }
         this.storageEventsHooked = true;
-        this.newStorage.onDidAdd((e) => this._onDidAddUri.fire(e), this, this.disposables);
-        this.newStorage.onDidChange((e) => this._onDidChangeUri.fire(e), this, this.disposables);
-        this.newStorage.onDidRemove((e) => this._onDidRemoveUris.fire(e), this, this.disposables);
+        this.newStorage.onDidAdd(
+            (e) => {
+                this.items = (this.items || [])
+                    .filter(
+                        (a) => generateIdFromRemoteProvider(a.provider) !== generateIdFromRemoteProvider(e.provider)
+                    )
+                    .concat(e);
+                this._onDidAddUri.fire(e);
+                this.getAll().catch(noop);
+            },
+            this,
+            this.disposables
+        );
+        this.newStorage.onDidChange(
+            (e) => {
+                this._onDidChangeUri.fire(e);
+                this.getAll().catch(noop);
+            },
+            this,
+            this.disposables
+        );
+        this.newStorage.onDidRemove(
+            (e) => {
+                const removeIds = new Set(e.map((item) => generateIdFromRemoteProvider(item.provider)));
+                this.items = (this.items || []).filter((a) => !removeIds.has(generateIdFromRemoteProvider(a.provider)));
+                this._onDidRemoveUris.fire(e);
+                this.getAll().catch(noop);
+            },
+            this,
+            this.disposables
+        );
     }
-    public async getAll(): Promise<IJupyterServerUriEntry[]> {
+    public get all(): IJupyterServerUriEntry[] {
+        this.hookupStorageEvents();
+        if (!this.items) {
+            this.getAll().catch(noop);
+        }
+        return this.items || [];
+    }
+    @swallowExceptions('Failed to get all remote server URIs')
+    private async getAll() {
         this.hookupStorageEvents();
         await this.newStorage.migrateMRU();
-        return this.newStorage.getAll();
+        const oldItems = this.items || [];
+        this.items = await this.newStorage.getAll();
+        if (oldItems.length !== this.items.length || JSON.stringify(oldItems) !== JSON.stringify(this.items)) {
+            this._onDidChangeUri.fire();
+        }
     }
+
     public async clear(): Promise<void> {
         this.hookupStorageEvents();
         await this.newStorage.migrateMRU();
         await Promise.all([this.oldStorage.clear(), this.newStorage.clear()]);
-    }
-    public async getLastUsedDateTime(server: JupyterServerProviderHandle): Promise<Date | undefined> {
-        this.hookupStorageEvents();
-        await this.newStorage.migrateMRU();
-        const savedList = await this.getAll();
-        const time = savedList.find(
-            (item) => item.provider.id === server.id && item.provider.handle === server.handle
-        )?.time;
-        return time ? new Date(time) : undefined;
+        this.items = undefined;
     }
     public async add(
         jupyterHandle: JupyterServerProviderHandle,
         options?: { time: number; displayName: string }
     ): Promise<void> {
         this.hookupStorageEvents();
-        await this.newStorage.migrateMRU();
+        await this.getAll();
         traceInfoIfCI(`setUri: ${jupyterHandle.id}.${jupyterHandle.handle}`);
         const entry: IJupyterServerUriEntry = {
             time: options?.time ?? Date.now(),

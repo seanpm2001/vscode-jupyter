@@ -116,18 +116,13 @@ suite('RemoteKernelControllerWatcher', () => {
             instance(remoteLiveKernel)
         ]);
 
-        when(uriStorage.getAll()).thenResolve([
+        when(uriStorage.all).thenReturn([
             {
                 time: 1,
                 displayName: 'Something',
-                provider: {
-                    handle: provider1Handle1,
-                    id: provider1Id,
-                    extensionId: '1'
-                }
+                provider: serverProviderHandle
             }
         ]);
-        when(uriStorage.getLastUsedDateTime(deepEqual(serverProviderHandle))).thenResolve(new Date());
         when(uriStorage.add(anything())).thenResolve();
         when(uriStorage.add(anything(), anything())).thenResolve();
 

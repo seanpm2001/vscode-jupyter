@@ -49,6 +49,7 @@ export function registerTypes(serviceManager: IServiceManager, _isDevMode: boole
     );
     serviceManager.addBinding(IJupyterUriProviderRegistration, IExtensionSyncActivationService);
     serviceManager.addSingleton<IJupyterServerUriStorage>(IJupyterServerUriStorage, JupyterServerUriStorage);
+    serviceManager.addBinding(IJupyterServerUriStorage, IExtensionSyncActivationService);
     serviceManager.addSingleton<IKernelSessionFactory>(IKernelSessionFactory, KernelSessionFactory);
     serviceManager.addSingleton<OldJupyterKernelSessionFactory>(
         OldJupyterKernelSessionFactory,

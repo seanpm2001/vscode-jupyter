@@ -69,6 +69,7 @@ suite('async', () => {
         }
         test('timeout', async () => {
             const result = raceTimeout(10, createTimeout(200, 'Hello World'));
+            console.log('Hello Worlkd');
 
             assert.equal(await result, undefined);
         });
