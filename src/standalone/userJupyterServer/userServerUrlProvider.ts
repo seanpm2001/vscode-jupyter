@@ -19,15 +19,12 @@ import {
 import { JupyterConnection } from '../../kernels/jupyter/connection/jupyterConnection';
 import {
     IJupyterServerUriStorage,
-    IInternalJupyterUriProvider,
-    IJupyterUriProviderRegistration,
     IJupyterRequestAgentCreator,
     IJupyterRequestCreator,
     IJupyterServerProviderRegistry
 } from '../../kernels/jupyter/types';
 import { IExtensionSyncActivationService } from '../../platform/activation/types';
 import {
-    IApplicationEnvironment,
     IApplicationShell,
     IClipboard,
     ICommandManager,
@@ -77,12 +74,7 @@ const GlobalStateUserAllowsInsecureConnections = 'DataScienceAllowInsecureConnec
 
 @injectable()
 export class UserJupyterServerUrlProvider
-    implements
-        IExtensionSyncActivationService,
-        IDisposable,
-        IInternalJupyterUriProvider,
-        JupyterServerProvider,
-        JupyterServerCommandProvider
+    implements IExtensionSyncActivationService, IDisposable, JupyterServerProvider, JupyterServerCommandProvider
 {
     readonly id: string = UserJupyterServerPickerProviderId;
     public readonly extensionId: string = JVSC_EXTENSION_ID;
@@ -98,10 +90,15 @@ export class UserJupyterServerUrlProvider
     public readonly newStorage: NewStorage;
     private migratedOldServers?: Promise<unknown>;
     private displayNamesOfHandles = new Map<string, string>();
+    private _onDidChangeServers = new EventEmitter<void>();
+    onDidChangeServers = this._onDidChangeServers.event;
+    selected: JupyterServerCommand = {
+        title: DataScience.jupyterSelectURIPrompt,
+        tooltip: DataScience.jupyterSelectURINewDetail,
+        command: 'jupyter.selectLocalJupyterServer'
+    };
     constructor(
         @inject(IClipboard) private readonly clipboard: IClipboard,
-        @inject(IJupyterUriProviderRegistration)
-        private readonly uriProviderRegistration: IJupyterUriProviderRegistration,
         @inject(IApplicationShell) private readonly applicationShell: IApplicationShell,
         @inject(IConfigurationService) configService: IConfigurationService,
         @inject(JupyterConnection) private readonly jupyterConnection: JupyterConnection,
@@ -120,8 +117,7 @@ export class UserJupyterServerUrlProvider
         @inject(IExtensionContext) private readonly context: IExtensionContext,
         @inject(IFileSystem) private readonly fs: IFileSystem,
         @inject(IJupyterServerProviderRegistry)
-        private readonly jupyterServerProviderRegistry: IJupyterServerProviderRegistry,
-        @inject(IApplicationEnvironment) private readonly appEnv: IApplicationEnvironment
+        private readonly jupyterServerProviderRegistry: IJupyterServerProviderRegistry
     ) {
         this.disposables.push(this);
         // eslint-disable-next-line @typescript-eslint/no-use-before-define
@@ -139,11 +135,52 @@ export class UserJupyterServerUrlProvider
             disposables
         );
     }
-    selected: JupyterServerCommand = {
-        title: DataScience.jupyterSelectURIPrompt,
-        tooltip: DataScience.jupyterSelectURINewDetail,
-        command: 'jupyter.selectLocalJupyterServer'
-    };
+    activate() {
+        const collection = this.jupyterServerProviderRegistry.createJupyterServerCollection(
+            JVSC_EXTENSION_ID,
+            this.id,
+            this.displayName
+        );
+        this.disposables.push(collection);
+        collection.commandProvider = this;
+        collection.serverProvider = this;
+        collection.documentation = this.documentation;
+        this.onDidChangeHandles(() => this._onDidChangeServers.fire(), this, this.disposables);
+        this.commands.registerCommand('jupyter.selectLocalJupyterServer', async (_url?: string) => {
+            const token = new CancellationTokenSource();
+            try {
+                const handleOrBack = await this.handleQuickPick({ label: DataScience.jupyterSelectURIPrompt }, true);
+                if (!handleOrBack) {
+                    return;
+                }
+                if (handleOrBack === 'back') {
+                    return 'back';
+                }
+                const servers = await this.getJupyterServers(token.token);
+                const server = servers.find((s) => s.id === handleOrBack);
+                if (!server) {
+                    throw new Error(`Server ${handleOrBack} not found`);
+                }
+                return server;
+            } catch (ex) {
+                traceError(`Failed to select a Jupyter Server`, ex);
+                return;
+            }
+        });
+        this._localDisposables.push(
+            this.commands.registerCommand('dataScience.ClearUserProviderJupyterServerCache', async () => {
+                await Promise.all([
+                    this.oldStorage.clear().catch(noop),
+                    this.newStorage.clear().catch(noop),
+                    this.fs
+                        .delete(Uri.joinPath(this.context.globalStorageUri, RemoteKernelSpecCacheFileName))
+                        .catch(noop)
+                ]);
+                this._onDidChangeHandles.fire();
+            })
+        );
+        this.initializeServers().catch(noop);
+    }
     /**
      * @param value Value entered by the user in the quick pick
      */
@@ -174,8 +211,6 @@ export class UserJupyterServerUrlProvider
             }
         ];
     }
-    private _onDidChangeServers = new EventEmitter<void>();
-    onDidChangeServers = this._onDidChangeServers.event;
     async getJupyterServers(_token: CancellationToken): Promise<JupyterServer[]> {
         await this.initializeServers();
         const servers = await this.newStorage.getServers(false);
@@ -184,7 +219,23 @@ export class UserJupyterServerUrlProvider
                 id: s.handle,
                 label: s.serverInfo.displayName,
                 resolveConnectionInformation: async (_token: CancellationToken) => {
-                    const serverInfo = await this.getServerUri(s.handle);
+                    // Hacky due to the way display names are stored in uri storage.
+                    // Should be cleaned up later.
+                    const displayName = this.displayNamesOfHandles.get(s.handle);
+                    if (displayName) {
+                        s.serverInfo.displayName = displayName;
+                    }
+
+                    const passwordResult = await this.passwordConnect.getPasswordConnectionInfo({
+                        url: s.serverInfo.baseUrl,
+                        isTokenEmpty: s.serverInfo.token.length === 0,
+                        displayName: s.serverInfo.displayName,
+                        handle: s.handle
+                    });
+                    const serverInfo = Object.assign({}, s.serverInfo, {
+                        authorizationHeader: passwordResult.requestHeaders || s.serverInfo.authorizationHeader
+                    });
+
                     return {
                         baseUrl: Uri.parse(serverInfo.baseUrl),
                         token: serverInfo.token,
@@ -195,62 +246,12 @@ export class UserJupyterServerUrlProvider
                         webSocketProtocols: serverInfo.webSocketProtocols
                     };
                 },
-                remove: () => this.removeHandle(s.handle)
+                remove: async () => {
+                    await this.newStorage.remove(s.handle);
+                    this._onDidChangeHandles.fire();
+                }
             };
         });
-    }
-    activate() {
-        if (this.appEnv.channel === 'insiders') {
-            const collection = this.jupyterServerProviderRegistry.createJupyterServerCollection(
-                JVSC_EXTENSION_ID,
-                this.id,
-                this.displayName
-            );
-            this.disposables.push(collection);
-            collection.commandProvider = this;
-            collection.serverProvider = this;
-            collection.documentation = this.documentation;
-            this.onDidChangeHandles(() => this._onDidChangeServers.fire(), this, this.disposables);
-            this.commands.registerCommand('jupyter.selectLocalJupyterServer', async (_url?: string) => {
-                const token = new CancellationTokenSource();
-                try {
-                    const handleOrBack = await this.handleQuickPick(
-                        { label: DataScience.jupyterSelectURIPrompt },
-                        true
-                    );
-                    if (!handleOrBack) {
-                        return;
-                    }
-                    if (handleOrBack === 'back') {
-                        return 'back';
-                    }
-                    const servers = await this.getJupyterServers(token.token);
-                    const server = servers.find((s) => s.id === handleOrBack);
-                    if (!server) {
-                        throw new Error(`Server ${handleOrBack} not found`);
-                    }
-                    return server;
-                } catch (ex) {
-                    traceError(`Failed to select a Jupyter Server`, ex);
-                    return;
-                }
-            });
-        } else {
-            this._localDisposables.push(this.uriProviderRegistration.registerProvider(this, JVSC_EXTENSION_ID));
-        }
-        this._localDisposables.push(
-            this.commands.registerCommand('dataScience.ClearUserProviderJupyterServerCache', async () => {
-                await Promise.all([
-                    this.oldStorage.clear().catch(noop),
-                    this.newStorage.clear().catch(noop),
-                    this.fs
-                        .delete(Uri.joinPath(this.context.globalStorageUri, RemoteKernelSpecCacheFileName))
-                        .catch(noop)
-                ]);
-                this._onDidChangeHandles.fire();
-            })
-        );
-        this.initializeServers().catch(noop);
     }
     private migrateOldServers() {
         if (!this.migratedOldServers) {
@@ -344,7 +345,7 @@ export class UserJupyterServerUrlProvider
                 await Promise.all([this.migrateOldServers().catch(noop), this.newStorage.migrationDone]);
                 await this.globalMemento.update(NEW_STORAGE_MIGRATION_DONE_KEY, env.machineId);
             }
-            this.getHandles().catch(noop);
+            await this.newStorage.getServers(false).catch(noop);
             deferred.resolve();
         })()
             .then(
@@ -354,17 +355,6 @@ export class UserJupyterServerUrlProvider
             .catch(noop);
         return this._cachedServerInfoInitialized;
     }
-
-    getQuickPickEntryItems(): (QuickPickItem & { default?: boolean })[] {
-        return [
-            {
-                default: true,
-                label: DataScience.jupyterSelectURIPrompt,
-                detail: DataScience.jupyterSelectURINewDetail
-            }
-        ];
-    }
-
     async handleQuickPick(
         item: QuickPickItem,
         backEnabled: boolean,
@@ -588,58 +578,6 @@ export class UserJupyterServerUrlProvider
 
     private async addNewServer(server: { handle: string; uri: string; serverInfo: IJupyterServerUri }) {
         await this.newStorage.add(server);
-        this._onDidChangeHandles.fire();
-    }
-    async getServerUriWithoutAuthInfo(handle: string): Promise<IJupyterServerUri> {
-        await this.initializeServers();
-        const servers = await this.newStorage.getServers(false);
-        const server = servers.find((s) => s.handle === handle);
-        if (!server) {
-            throw new Error('Server not found');
-        }
-
-        // Hacky due to the way display names are stored in uri storage.
-        // Should be cleaned up later.
-        const displayName = this.displayNamesOfHandles.get(handle);
-        if (displayName) {
-            server.serverInfo.displayName = displayName;
-        }
-        return server.serverInfo;
-    }
-    async getServerUri(handle: string): Promise<IJupyterServerUri> {
-        await this.initializeServers();
-        const servers = await this.newStorage.getServers(false);
-        const server = servers.find((s) => s.handle === handle);
-        if (!server) {
-            throw new Error('Server not found');
-        }
-
-        // Hacky due to the way display names are stored in uri storage.
-        // Should be cleaned up later.
-        const displayName = this.displayNamesOfHandles.get(handle);
-        if (displayName) {
-            server.serverInfo.displayName = displayName;
-        }
-
-        const passwordResult = await this.passwordConnect.getPasswordConnectionInfo({
-            url: server.serverInfo.baseUrl,
-            isTokenEmpty: server.serverInfo.token.length === 0,
-            displayName: server.serverInfo.displayName,
-            handle
-        });
-        return Object.assign({}, server.serverInfo, {
-            authorizationHeader: passwordResult.requestHeaders || server.serverInfo.authorizationHeader
-        });
-    }
-    async getHandles(): Promise<string[]> {
-        await this.initializeServers();
-        const servers = await this.newStorage.getServers(false);
-        return servers.map((s) => s.handle);
-    }
-
-    async removeHandle(handle: string): Promise<void> {
-        await this.initializeServers();
-        await this.newStorage.remove(handle);
         this._onDidChangeHandles.fire();
     }
     dispose(): void {

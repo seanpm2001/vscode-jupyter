@@ -6,8 +6,7 @@ import { anything, instance, mock, verify, when } from 'ts-mockito';
 import {
     IJupyterRequestCreator,
     IJupyterServerProviderRegistry,
-    IJupyterServerUriStorage,
-    IJupyterUriProviderRegistration
+    IJupyterServerUriStorage
 } from '../../kernels/jupyter/types';
 import {
     IAsyncDisposable,
@@ -23,7 +22,7 @@ import {
     UserJupyterServerUriListMementoKey,
     UserJupyterServerUrlProvider
 } from './userServerUrlProvider';
-import { Disposable, InputBox, Memento } from 'vscode';
+import { CancellationToken, CancellationTokenSource, Disposable, InputBox, Memento } from 'vscode';
 import { JupyterConnection } from '../../kernels/jupyter/connection/jupyterConnection';
 import {
     IClipboard,
@@ -32,7 +31,7 @@ import {
     ICommandManager,
     IApplicationEnvironment
 } from '../../platform/common/application/types';
-import { noop, sleep } from '../../test/core';
+import { noop } from '../../test/core';
 import { disposeAllDisposables } from '../../platform/common/helpers';
 import { JVSC_EXTENSION_ID, Settings, UserJupyterServerPickerProviderId } from '../../platform/common/constants';
 import { assert } from 'chai';
@@ -46,7 +45,6 @@ import { JupyterServerCollection } from '../../api';
 suite('User Uri Provider', () => {
     let provider: UserJupyterServerUrlProvider;
     let clipboard: IClipboard;
-    let uriProviderRegistration: IJupyterUriProviderRegistration;
     let applicationShell: IApplicationShell;
     let configService: IConfigurationService;
     let jupyterConnection: JupyterConnection;
@@ -79,6 +77,8 @@ suite('User Uri Provider', () => {
         ],
         Promise<IJupyterPasswordConnectInfo>
     >;
+    let token: CancellationToken;
+    let tokenSource: CancellationTokenSource;
 
     setup(() => {
         inputBox = {
@@ -111,7 +111,6 @@ suite('User Uri Provider', () => {
         sinon.stub(inputBox, 'onDidHide').callsFake(() => new Disposable(noop));
 
         clipboard = mock<IClipboard>();
-        uriProviderRegistration = mock<IJupyterUriProviderRegistration>();
         applicationShell = mock<IApplicationShell>();
         configService = mock<IConfigurationService>();
         jupyterConnection = mock<JupyterConnection>();
@@ -121,6 +120,9 @@ suite('User Uri Provider', () => {
         multiStepFactory = mock<IMultiStepInputFactory>();
         commands = mock<ICommandManager>();
         requestCreator = mock<IJupyterRequestCreator>();
+        tokenSource = new CancellationTokenSource();
+        token = tokenSource.token;
+        disposables.push(tokenSource);
         when(serverUriStorage.getAll()).thenResolve([]);
         when(applicationShell.createInputBox()).thenReturn(inputBox);
         when(jupyterConnection.validateRemoteUri(anything())).thenResolve();
@@ -178,7 +180,6 @@ suite('User Uri Provider', () => {
         when(appEnv.channel).thenReturn('stable');
         provider = new UserJupyterServerUrlProvider(
             instance(clipboard),
-            instance(uriProviderRegistration),
             instance(applicationShell),
             instance(configService),
             instance(jupyterConnection),
@@ -194,8 +195,7 @@ suite('User Uri Provider', () => {
             instance(requestCreator),
             instance(mock<IExtensionContext>()),
             instance(mock<IFileSystem>()),
-            instance(jupyterServerProviderRegistry),
-            instance(appEnv)
+            instance(jupyterServerProviderRegistry)
         );
     });
     teardown(async () => {
@@ -226,22 +226,13 @@ suite('User Uri Provider', () => {
         ).thenResolve(oldUrls.join(Settings.JupyterServerRemoteLaunchUriSeparator));
 
         provider.activate();
-        let handles = await provider.getHandles();
-
-        try {
-            assert.strictEqual(handles.length, 2);
-        } catch {
-            // Wait for a while and try again
-            await sleep(100);
-            handles = await provider.getHandles();
-            assert.strictEqual(handles.length, 2);
-        }
-
-        const servers = await Promise.all(handles.map((h) => provider.getServerUri(h)));
+        const servers = await provider.getJupyterServers(token);
         assert.strictEqual(servers.length, 2);
-        servers.sort((a, b) => a.baseUrl.localeCompare(b.baseUrl));
+
+        const serverUris = await Promise.all(servers.map((s) => s.resolveConnectionInformation(token)));
+        serverUris.sort((a, b) => a.baseUrl.toString().localeCompare(b.baseUrl.toString()));
         assert.deepEqual(
-            servers.map((s) => s.baseUrl),
+            serverUris.map((s) => s.baseUrl.toString()),
             ['http://localhost:1111/', 'http://localhost:2222/']
         );
 
@@ -263,7 +254,7 @@ suite('User Uri Provider', () => {
         );
     }
     test('Migrate Old Urls', async () => testMigration());
-    test('Migrate display names from Uri Storage', async () => {
+    test.only('Migrate display names from Uri Storage', async () => {
         const dataInUserJupyterServerStorage = [
             {
                 handle: '1',
@@ -298,28 +289,21 @@ suite('User Uri Provider', () => {
             }
         ]);
         provider.activate();
-        let handles = await provider.getHandles();
+        const servers = await provider.getJupyterServers(token);
 
-        try {
-            assert.deepEqual(handles, ['1', '3']);
-        } catch {
-            // Wait for a while and try again
-            await sleep(100);
-            handles = await provider.getHandles();
-            assert.deepEqual(handles, ['1', '3']);
-        }
+        assert.deepEqual(
+            servers.map((s) => s.id),
+            ['1', '3']
+        );
 
-        const servers = await Promise.all(handles.map((h) => provider.getServerUri(h)));
+        const serverUris = await Promise.all(servers.map((h) => h.resolveConnectionInformation(token)));
         assert.strictEqual(servers.length, 2);
-        servers.sort((a, b) => a.baseUrl.localeCompare(b.baseUrl));
-        assert.deepEqual(
-            servers.map((s) => s.baseUrl),
-            ['http://localhost:8080/', 'http://microsoft.com/server']
-        );
-        assert.deepEqual(
-            servers.map((s) => s.displayName),
-            ['My Remote Server Name', 'Azure ML']
-        );
+        serverUris.sort((a, b) => a.baseUrl.toString().localeCompare(b.baseUrl.toString()));
+        assert.deepEqual(serverUris.map((s) => s.baseUrl.toString()).sort(), [
+            'http://localhost:8080/',
+            'http://microsoft.com/server'
+        ]);
+        assert.deepEqual(servers.map((s) => s.label).sort(), ['Azure ML', 'My Remote Server Name']);
 
         // Verify the of the servers have the actual names in the stores.
         const [serversInNewStorage, serversInNewStorage2] = await Promise.all([
@@ -335,7 +319,7 @@ suite('User Uri Provider', () => {
             ['Azure ML', 'My Remote Server Name']
         );
     });
-    test('Add a new Url and verify it is in the storage', async () => {
+    test.only('Add a new Url and verify it is in the storage', async () => {
         await testMigration();
         when(clipboard.readText()).thenResolve('https://localhost:3333?token=ABCD');
         when(applicationShell.showInputBox(anything())).thenResolve('Foo Bar' as any);
@@ -350,9 +334,12 @@ suite('User Uri Provider', () => {
             )
         ).never();
         assert.ok(handle);
-        const handles = await provider.getHandles();
-        assert.isAtLeast(handles.length, 3, '2 migrated urls and one entered');
-        assert.include(handles, handle);
+        const servers = await provider.getJupyterServers(token);
+        assert.isAtLeast(servers.length, 3, '2 migrated urls and one entered');
+        assert.include(
+            servers.map((s) => s.id),
+            handle
+        );
 
         const [serversInNewStorage, serversInNewStorage2] = await Promise.all([
             provider.newStorage.getServers(false),
@@ -361,7 +348,7 @@ suite('User Uri Provider', () => {
         assert.strictEqual(serversInNewStorage.length, 3);
         assert.strictEqual(serversInNewStorage2.length, 3);
     });
-    test('When adding a HTTP url (without pwd, and without a token) prompt user to use insecure sites (in new pwd manager)', async function () {
+    test.only('When adding a HTTP url (without pwd, and without a token) prompt user to use insecure sites (in new pwd manager)', async function () {
         await testMigration();
         when(clipboard.readText()).thenResolve('http://localhost:3333');
         when(applicationShell.showInputBox(anything())).thenResolve('Foo Bar' as any);
@@ -383,9 +370,12 @@ suite('User Uri Provider', () => {
             )
         ).once();
         assert.ok(handle);
-        const handles = await provider.getHandles();
-        assert.isAtLeast(handles.length, 3, '2 migrated urls and one entered');
-        assert.include(handles, handle);
+        const servers = await provider.getJupyterServers(token);
+        assert.isAtLeast(servers.length, 3, '2 migrated urls and one entered');
+        assert.include(
+            servers.map((s) => s.id),
+            handle
+        );
 
         const [serversInNewStorage, serversInNewStorage2] = await Promise.all([
             provider.newStorage.getServers(false),
@@ -394,7 +384,7 @@ suite('User Uri Provider', () => {
         assert.strictEqual(serversInNewStorage.length, 3);
         assert.strictEqual(serversInNewStorage2.length, 3);
     });
-    test('When prompted to use insecure sites and ignored/cancelled, then do not add the url', async function () {
+    test.only('When prompted to use insecure sites and ignored/cancelled, then do not add the url', async function () {
         await testMigration();
         when(clipboard.readText()).thenResolve('http://localhost:3333');
         when(applicationShell.showInputBox(anything())).thenResolve('Foo Bar' as any);
@@ -416,8 +406,8 @@ suite('User Uri Provider', () => {
             )
         ).once();
         assert.isUndefined(handle);
-        const handles = await provider.getHandles();
-        assert.isAtLeast(handles.length, 2, '2 migrated urls');
+        const servers = await provider.getJupyterServers(token);
+        assert.isAtLeast(servers.length, 2, '2 migrated urls');
 
         const [serversInNewStorage, serversInNewStorage2] = await Promise.all([
             provider.newStorage.getServers(false),
@@ -451,9 +441,12 @@ suite('User Uri Provider', () => {
             )
         ).never();
         assert.ok(handle);
-        const handles = await provider.getHandles();
-        assert.isAtLeast(handles.length, 3, '2 migrated urls and one entered');
-        assert.include(handles, handle);
+        const servers = await provider.getJupyterServers(token);
+        assert.isAtLeast(servers.length, 3, '2 migrated urls and one entered');
+        assert.include(
+            servers.map((s) => s.id),
+            handle
+        );
 
         const [serversInNewStorage, serversInNewStorage2] = await Promise.all([
             provider.newStorage.getServers(false),
