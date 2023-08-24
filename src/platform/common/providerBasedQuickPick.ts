@@ -5,11 +5,13 @@ import {
     CancellationToken,
     Disposable,
     Event,
+    EventEmitter,
     MarkdownString,
     QuickInputButton,
     QuickInputButtons,
     QuickPick,
     QuickPickItem,
+    QuickPickItemButtonEvent,
     QuickPickItemKind,
     ThemeIcon,
     Uri,
@@ -72,6 +74,12 @@ export class BaseProviderBasedQuickPick<T extends { id: string }> extends Dispos
     private previouslyEnteredValue: string = '';
     private previouslySelectedItem?: CommandQuickPickItem<T>;
     private resolvedProvider?: IQuickPickItemProvider<T>;
+    private readonly _onDidTriggerItemButton = new EventEmitter<QuickPickItemButtonEvent<QuickPickItem>>();
+    /**
+     * An event signaling when a button in a particular {@link QuickPickItem} was triggered.
+     * This event does not fire for buttons in the title bar.
+     */
+    readonly onDidTriggerItemButton = this._onDidTriggerItemButton.event;
     constructor(
         private readonly provider: Promise<IQuickPickItemProvider<T>>,
         private readonly createQuickPickItem: (item: T, provider: BaseProviderBasedQuickPick<T>) => QuickPickItem,
@@ -155,6 +163,7 @@ export class BaseProviderBasedQuickPick<T extends { id: string }> extends Dispos
                     this,
                     disposables
                 );
+                quickPick.onDidTriggerItemButton((e) => this._onDidTriggerItemButton.fire(e), this, disposables);
                 let timeout: NodeJS.Timer | undefined;
                 provider.onDidChangeStatus(
                     () => {
@@ -225,7 +234,7 @@ export class BaseProviderBasedQuickPick<T extends { id: string }> extends Dispos
                                 } else if (this.isCommandQuickPickItem(selection)) {
                                     resolve(selection);
                                 } else if (this.isErrorQuickPickItem(selection)) {
-                                    resolve(InputFlowAction.cancel);
+                                    // resolve(InputFlowAction.cancel);
                                 }
                             }
                         });

@@ -43,10 +43,12 @@ import { JupyterConnection } from '../../../kernels/jupyter/connection/jupyterCo
 import { generateIdFromRemoteProvider } from '../../../kernels/jupyter/jupyterUtils';
 import { BaseProviderBasedQuickPick } from '../../../platform/common/providerBasedQuickPick';
 import { PreferredKernelConnectionService } from '../preferredKernelConnectionService';
-import { traceError } from '../../../platform/logging';
+import { traceError, traceVerbose } from '../../../platform/logging';
 import { IRemoteKernelFinderController } from '../../../kernels/jupyter/finder/types';
 import { raceCancellationError } from '../../../platform/common/cancellation';
-import { JupyterServer } from '../../../api';
+import { JupyterServer, JupyterServerCollection } from '../../../api';
+import { noop } from '../../../platform/common/utils/misc';
+import { createDeferred } from '../../../platform/common/utils/async';
 
 enum KernelFinderEntityQuickPickType {
     KernelFinder = 'finder',
@@ -154,9 +156,10 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
         )[] = [];
 
         const serversAndTimes: { server: IRemoteKernelFinder; time?: number }[] = [];
-        const serverProvider = this.jupyterServerRegistry.jupyterCollections.find(
+        const collection = this.jupyterServerRegistry.jupyterCollections.find(
             (p) => p.extensionId === provider.extensionId && p.id === provider.id
-        )?.serverProvider;
+        );
+        const serverProvider = collection?.serverProvider;
         const serversPromise = serverProvider?.provideJupyterServers
             ? serverProvider.provideJupyterServers.bind(serverProvider)(token)
             : Promise.resolve([]);
@@ -355,6 +358,7 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
                     const result = await this.selectRemoteKernelFromPicker(
                         state.notebook,
                         Promise.resolve(selectedSource.kernelFinderInfo as IRemoteKernelFinder),
+                        collection,
                         token
                     ).catch((ex) => traceError(`Failed to select a kernel`, ex));
                     if (result && result === InputFlowAction.back) {
@@ -380,9 +384,12 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
                         );
                     })();
 
-                    const result = await this.selectRemoteKernelFromPicker(state.notebook, finderPromise, token).catch(
-                        (ex) => traceError(`Failed to select a kernel`, ex)
-                    );
+                    const result = await this.selectRemoteKernelFromPicker(
+                        state.notebook,
+                        finderPromise,
+                        collection,
+                        token
+                    ).catch((ex) => traceError(`Failed to select a kernel`, ex));
                     if (result && result === InputFlowAction.back) {
                         return this.getRemoteServersFromProvider(provider, token, multiStep, state);
                     }
@@ -398,7 +405,12 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
                         if (lazyQuickPick) {
                             lazyQuickPick.busy = true;
                         }
-                        const ret = await this.selectRemoteServerFromRemoteKernelFinder(selectedSource, state, token);
+                        const ret = await this.selectRemoteServerFromRemoteKernelFinder(
+                            selectedSource,
+                            state,
+                            collection,
+                            token
+                        );
                         if (lazyQuickPick) {
                             lazyQuickPick.busy = false;
                         }
@@ -422,6 +434,7 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
     private async selectRemoteServerFromRemoteKernelFinder(
         selectedSource: KernelProviderItemsQuickPickItem,
         state: MultiStepResult,
+        collection: JupyterServerCollection | undefined,
         token: CancellationToken
     ): Promise<void> {
         if (!selectedSource.provider.handleQuickPick || token.isCancellationRequested) {
@@ -453,11 +466,11 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
             );
         })();
 
-        const result = await this.selectRemoteKernelFromPicker(state.notebook, finderPromise, token).catch((ex) =>
-            traceError(`Failed to select a kernel`, ex)
+        const result = await this.selectRemoteKernelFromPicker(state.notebook, finderPromise, collection, token).catch(
+            (ex) => traceError(`Failed to select a kernel`, ex)
         );
         if (result && result === InputFlowAction.back) {
-            return this.selectRemoteServerFromRemoteKernelFinder(selectedSource, state, token);
+            return this.selectRemoteServerFromRemoteKernelFinder(selectedSource, state, collection, token);
         }
         if (!result || result instanceof InputFlowAction) {
             throw new CancellationError();
@@ -468,8 +481,9 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
     private async selectRemoteKernelFromPicker(
         notebook: NotebookDocument,
         source: Promise<IRemoteKernelFinder>,
+        collection: JupyterServerCollection | undefined,
         token: CancellationToken
-    ) {
+    ): Promise<RemoteKernelConnectionMetadata | InputFlowAction | undefined> {
         const quickPickFactory = (item: KernelConnectionMetadata) => {
             const displayData = this.displayDataProvider.getDisplayData(item);
             return <QuickPickItem>{
@@ -483,10 +497,24 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
                 label: this.displayDataProvider.getDisplayData(item).category || 'Other'
             };
         };
-        const errorToQuickPickItem = (_error: Error) => ({
+        const quickPickToFixConnection: QuickPickItem = {
+            label: DataScience.failedToFetchKernelSpecsRemoteErrorMessageForQuickPickLabel,
+            detail: DataScience.failedToFetchKernelSpecsRemoteErrorMessageForQuickPickDetail,
+            buttons: [{ iconPath: new ThemeIcon('symbol-property'), tooltip: 'Inspect' }]
+        };
+        const quickPickWithErrorMessage: QuickPickItem = {
             label: DataScience.failedToFetchKernelSpecsRemoteErrorMessageForQuickPickLabel,
             detail: DataScience.failedToFetchKernelSpecsRemoteErrorMessageForQuickPickDetail
-        });
+        };
+
+        const errorToQuickPickItem = (_error: Error) => {
+            const canFixConnection =
+                (collection?.extensionId === JVSC_EXTENSION_ID ||
+                    collection?.extensionId === JUPYTER_HUB_EXTENSION_ID) &&
+                typeof collection.serverProvider?.resolveInvalidJupyterServer === 'function';
+            return canFixConnection ? quickPickToFixConnection : quickPickWithErrorMessage;
+        };
+
         const remoteKernelPicker = new BaseProviderBasedQuickPick(
             source,
             quickPickFactory,
@@ -494,11 +522,46 @@ export class RemoteNotebookKernelSourceSelector implements IRemoteNotebookKernel
             { supportsBack: true },
             errorToQuickPickItem
         );
+        const disposables: IDisposable[] = [];
+        let attemptedToFixConnection = false;
+        const completedFixingConnection = createDeferred<boolean>();
+        remoteKernelPicker.onDidTriggerItemButton(
+            async (e) => {
+                if (e.item === quickPickToFixConnection && collection?.serverProvider?.resolveInvalidJupyterServer) {
+                    attemptedToFixConnection = true;
+                    const finder = await source;
+                    const servers = await collection.serverProvider.provideJupyterServers(token);
+                    const server = servers.find((s) => s.id === finder.serverProviderHandle.handle);
+                    if (!server) {
+                        traceError(`Failed to find server ${finder.serverProviderHandle.id}`);
+                        return;
+                    }
+
+                    try {
+                        await collection.serverProvider.resolveInvalidJupyterServer!(server, token);
+                        finder.refresh().catch(noop);
+                        completedFixingConnection.resolve(true);
+                    } catch (ex) {
+                        traceVerbose(`Failed to resolve connection`, ex);
+                        completedFixingConnection.resolve(false);
+                    }
+                }
+            },
+            this,
+            disposables
+        );
         const preferred = new PreferredKernelConnectionService(this.jupyterConnection);
         source
             .then((source) => preferred.findPreferredRemoteKernelConnection(notebook, source, token))
             .then((item) => (remoteKernelPicker.selected = item))
             .catch((ex) => traceError(`Failed to determine preferred remote kernel`, ex));
-        return remoteKernelPicker.selectItem(token);
+        const result = await remoteKernelPicker.selectItem(token);
+        if (!result && attemptedToFixConnection && !token.isCancellationRequested) {
+            const fixed = await completedFixingConnection.promise;
+            if (fixed) {
+                return this.selectRemoteKernelFromPicker(notebook, source, collection, token);
+            }
+        }
+        return result;
     }
 }

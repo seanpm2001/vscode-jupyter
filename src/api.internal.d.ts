@@ -24,6 +24,14 @@ declare module './api' {
          * A better more generic way to deal with this would be via commands.
          */
         removeJupyterServer?(server: JupyterServer): Promise<void>;
+        /**
+         * Called when Jupyter Extension is unable to connect to a Jupyter Server.
+         * This gives the owning extension to resolve the issue by prompting for more information from the user and eventually providing a different connection information.
+         * E.g. its possible the Auth information has since changed, or the server is no longer available.
+         *
+         * If the Server connection cannot be restored the extension could throw and error and optionally remove this server all together.
+         */
+        resolveInvalidJupyterServer?(server: JupyterServer, token: CancellationToken): Promise<ResolvedJupyterServer>;
     }
     export interface JupyterServerCommandProvider {
         /**
