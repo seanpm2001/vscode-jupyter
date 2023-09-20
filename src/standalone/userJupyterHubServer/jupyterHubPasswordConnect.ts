@@ -99,7 +99,9 @@ export class JupyterHubPasswordConnect {
 
             // If the URL has the /user/ option in it, it's likely this is jupyter hub
             if (url.toLowerCase().includes('/user/')) {
-                return true;
+                // Just because /user/ exists doesn't mean it is jupyter hub, it is likely, but not necessarily.
+                // Hence strip user part and try to connect to the server and see if the end point has a hub/api.
+                url = url.substring(0, url.toLowerCase().indexOf('/user/'));
             }
 
             // Otherwise request hub/api. This should return the json with the hub version
