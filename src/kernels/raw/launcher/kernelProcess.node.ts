@@ -158,7 +158,6 @@ export class KernelProcess implements IKernelProcess {
 
         let stdout = '';
         let stderr = '';
-        let stderrProc = '';
         let exitEventFired = false;
         let providedExitCode: number | null;
         const deferred = createDeferred();
@@ -169,11 +168,11 @@ export class KernelProcess implements IKernelProcess {
                 traceVerbose(`KernelProcess Exited, Exit Code - ${exitCode}`);
                 return;
             }
-            traceVerbose(`KernelProcess Exited, Exit Code - ${exitCode}`, stderrProc);
+            traceVerbose(`KernelProcess Exited, Exit Code - ${exitCode}`, stderr);
             if (!exitEventFired) {
                 this.exitEvent.fire({
                     exitCode: exitCode || undefined,
-                    reason: getTelemetrySafeErrorMessageFromPythonTraceback(stderrProc) || stderrProc
+                    reason: getTelemetrySafeErrorMessageFromPythonTraceback(stderr) || stderr
                 });
                 exitEventFired = true;
             }
@@ -183,59 +182,45 @@ export class KernelProcess implements IKernelProcess {
             }
         });
 
-        if (exeObs.proc) {
-            exeObs.proc.stdout?.on('data', (data: Buffer | string) => {
-                traceVerbose(`Kernel output: ${(data || '').toString()}`);
-                this.sendToOutput((data || '').toString());
-            });
-
-            exeObs.proc.stderr?.on('data', (data: Buffer | string) => {
-                // We get these from execObs.out.subscribe.
-                // Hence log only using traceLevel = verbose.
-                // But only useful if daemon doesn't start for any reason.
-                const output = stripUnwantedMessages((data || '').toString());
-                stderrProc += output;
-                if (output.trim().length) {
-                    traceVerbose(`KernelProcess error: ${output}`);
-                }
-                this.sendToOutput(output);
-            });
-        }
-
         let sawKernelConnectionFile = false;
-        exeObs.out.onDidChange((output) => {
-            if (output.source === 'stderr') {
-                output.out = stripUnwantedMessages(output.out);
-                // Capture stderr, incase kernel doesn't start.
-                stderr += output.out;
-
-                if (output.out.trim().length) {
-                    traceWarning(`StdErr from Kernel Process ${output.out.trim()}`);
-                }
-            } else {
-                stdout += output.out;
-                // Strip unwanted stuff from the output, else it just chews up unnecessary space.
-                if (!sawKernelConnectionFile) {
-                    stdout = stdout.replace(kernelOutputToNotLog, '');
-                    stdout = stdout.replace(kernelOutputToNotLog.split(/\r?\n/).join(os.EOL), '');
-                    // Strip the leading space, as we've removed some leading text.
-                    stdout = stdout.trimStart();
-                    const lines = splitLines(stdout, { trim: true, removeEmptyEntries: true });
-                    if (
-                        lines.length === 2 &&
-                        lines[0] === kernelOutputWithConnectionFile &&
-                        lines[1].startsWith('--existing') &&
-                        lines[1].endsWith('.json')
-                    ) {
-                        stdout = `${lines.join(' ')}${os.EOL}`;
-                    }
-                }
-                if (stdout.includes(kernelOutputWithConnectionFile)) {
-                    sawKernelConnectionFile = true;
+        exeObs.proc?.stdout?.on('data', (data: Buffer | string) => {
+            const output = (data || '').toString();
+            traceVerbose(`Kernel stdout: ${output}`);
+            stdout += output;
+            // Strip unwanted stuff from the output, else it just chews up unnecessary space.
+            if (!sawKernelConnectionFile) {
+                stdout = stdout.replace(kernelOutputToNotLog, '');
+                stdout = stdout.replace(kernelOutputToNotLog.split(/\r?\n/).join(os.EOL), '');
+                // Strip the leading space, as we've removed some leading text.
+                stdout = stdout.trimStart();
+                const lines = splitLines(stdout, { trim: true, removeEmptyEntries: true });
+                if (
+                    lines.length === 2 &&
+                    lines[0] === kernelOutputWithConnectionFile &&
+                    lines[1].startsWith('--existing') &&
+                    lines[1].endsWith('.json')
+                ) {
+                    stdout = `${lines.join(' ')}${os.EOL}`;
                 }
             }
-            this.sendToOutput(output.out);
+            if (stdout.includes(kernelOutputWithConnectionFile)) {
+                sawKernelConnectionFile = true;
+            }
+            this.sendToOutput(output);
         });
+
+        exeObs.proc?.stderr?.on('data', (data: Buffer | string) => {
+            // We get these from execObs.out.subscribe.
+            // Hence log only using traceLevel = verbose.
+            // But only useful if daemon doesn't start for any reason.
+            const output = stripUnwantedMessages((data || '').toString());
+            stderr += output;
+            if (output.trim().length) {
+                traceWarning(`Kernel stderr: ${output}`);
+            }
+            this.sendToOutput(output);
+        });
+
         exeObs.out.done.catch((error) => {
             if (this.disposed) {
                 traceWarning('Kernel died', error, stderr);
@@ -267,7 +252,7 @@ export class KernelProcess implements IKernelProcess {
             });
             await raceCancellationError(cancelToken, portsUsed, deferred.promise);
         } catch (e) {
-            const stdErrToLog = (stderrProc || stderr || '').trim();
+            const stdErrToLog = (stderr || '').trim();
             if (!cancelToken?.isCancellationRequested && !isCancellationError(e)) {
                 traceError('Disposing kernel process due to an error', e);
                 if (e && e instanceof Error && stdErrToLog.length && e.message.includes(stdErrToLog)) {
@@ -288,11 +273,11 @@ export class KernelProcess implements IKernelProcess {
                 }
                 // If we have the python error message in std outputs, display that.
                 const errorMessage = getErrorMessageFromPythonTraceback(stdErrToLog) || stdErrToLog.substring(0, 100);
-                traceInfoIfCI(`KernelDiedError raised`, errorMessage, stderrProc + '\n' + stderr + '\n');
+                traceInfoIfCI(`KernelDiedError raised`, errorMessage, stderr + '\n');
                 throw new KernelDiedError(
                     DataScience.kernelDied(errorMessage),
                     // Include what ever we have as the stderr.
-                    stderrProc + '\n' + stderr + '\n',
+                    stderr + '\n',
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     e as any,
                     this.kernelConnectionMetadata

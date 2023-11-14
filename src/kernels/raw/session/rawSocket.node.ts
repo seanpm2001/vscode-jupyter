@@ -15,11 +15,14 @@ import { IKernelConnection } from '../types';
 import type { Channel } from '@jupyterlab/services/lib/kernel/messages';
 import { getZeroMQ } from './zeromq.node';
 
-function formConnectionString(config: IKernelConnection, channel: string) {
+function formConnectionString(config: IKernelConnection, channel: Channel) {
     const portDelimiter = config.transport === 'tcp' ? ':' : '-';
-    const port = config[`${channel}_port` as keyof IKernelConnection];
+    let port = config[`${channel}_port` as keyof IKernelConnection];
     if (!port) {
         throw new Error(`Port not found for channel "${channel}"`);
+    }
+    if (channel === 'control' || channel === 'stdin') {
+        port = parseInt(port.toString(), 10) + 100;
     }
     return `${config.transport}://${config.ip}${portDelimiter}${port}`;
 }
