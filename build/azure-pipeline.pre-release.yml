@@ -69,6 +69,35 @@ extends:
       - script: npm i -g npm@9.5.0
         displayName: npm 9.5.0
 
+      - script: echo $(Build.BuildNumber)
+        env:
+          BUILD_NUMBER: $($(Build.BuildNumber))
+        displayName: Print Build Number
+
+      - pwsh: |
+          $packagejsonPath = './package.json'
+
+          $json = Get-Content $packagejsonPath | ConvertFrom-Json -Depth 100
+
+          $newProps = @{ }
+
+          $stableVersion = $json.version -split '\.'
+          $major = $stableVersion[0]
+          $minor = $stableVersion[1]
+
+          $buildNumber = '$(Build.BuildNumber)'
+          $dateSegment, $revisionSegment = $buildNumber -split '_'
+          $patch = $dateSegment + ($revisionSegment.PadLeft(2, '0'))
+          $newProps.version = "$major.$minor.$patch"
+
+          $prereleasePackageJson = $json | Add-Member -NotePropertyMembers $newProps -PassThru -Force
+          $prereleasePackageJson | ConvertTo-Json -Depth 100 | Set-Content $packagejsonPath
+        displayName: Update the extension version in package.json
+        workingDirectory: ${{ parameters.workingDirectory }}
+
+      - script: cat ./package.json
+        displayName: Display package.json contents
+
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.8'
