@@ -66,6 +66,24 @@ extends:
         displayName: Install zmq dependencies
         condition: or(eq(variables.vsceTarget, ''), contains(variables.vsceTarget, 'linux'), contains(variables.vsceTarget, 'alpine'))
 
+      - pwsh: |
+          $packagejsonPath = './package.json'
+          $json = Get-Content $packagejsonPath | ConvertFrom-Json -Depth 100
+          $newProps = @{ }
+          $stableVersion = $json.version -split '\.'
+          $major = $stableVersion[0]
+          $minor = $stableVersion[1]
+          $buildNumber = '$(Build.BuildNumber)'
+          $dateSegment, $revisionSegment, $ignore = $buildNumber -split '_'
+          $patch = $dateSegment + ($revisionSegment.PadLeft(2, '0'))
+          $newProps.version = "$major.$minor.$patch"
+          $prereleasePackageJson = $json | Add-Member -NotePropertyMembers $newProps -PassThru -Force
+          $prereleasePackageJson | ConvertTo-Json -Depth 100 | Set-Content $packagejsonPath
+        displayName: Update the extension version in package.json
+
+      - script: cat ./package.json
+        displayName: npm 9.5.0
+
       - script: npm i -g npm@9.5.0
         displayName: npm 9.5.0
 
