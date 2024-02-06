@@ -201,7 +201,7 @@ export class RawKernelConnection implements Kernel.IKernelConnection {
             if (isCancellationError(error) || token.isCancellationRequested) {
                 traceVerbose('Starting of raw session cancelled by user');
             } else {
-                traceError(`Failed to connect raw kernel session: ${error}`);
+                traceError(`Failed to connect raw kernel session`, error);
             }
             throw error;
         } finally {

@@ -51,7 +51,7 @@ export class RawKernelSessionFactory implements IRawKernelSessionFactory {
             if (isCancellationError(error) || options.token.isCancellationRequested) {
                 traceVerbose('Starting of raw session cancelled by user');
             } else {
-                traceError(`Failed to connect raw kernel session: ${error}`);
+                traceError(`Failed to connect raw kernel session`, error);
             }
             // Make sure we shut down our session in case we started a process
             session

@@ -12,7 +12,8 @@ import {
     NotebookDocument,
     Event,
     EventEmitter,
-    CancellationError
+    CancellationError,
+    CancellationTokenSource
 } from 'vscode';
 import { Kernel, KernelStatus, Output } from '../../api';
 import { ServiceContainer } from '../../platform/ioc/container';
@@ -28,9 +29,11 @@ import { Deferred, createDeferred, sleep } from '../../platform/common/utils/asy
 import { once } from '../../platform/common/utils/events';
 import { traceVerbose } from '../../platform/logging';
 import { PYTHON_LANGUAGE } from '../../platform/common/constants';
-import type { IComm } from '@jupyterlab/services/lib/kernel/kernel';
+import type { IComm, IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 // eslint-disable-next-line import/no-restricted-paths
 import { wrapKernel } from '../../standalone/api/kernelWrapper';
+import type { ICommMsgMsg, IOptions } from '@jupyterlab/services/lib/kernel/messages';
+import { raceCancellationError } from '../../platform/common/cancellation';
 type CommData = {
     data: unknown;
 };
@@ -289,7 +292,7 @@ class WrappedKernelPerExtension extends DisposableBase implements Kernel {
     async createCommTarget(token: CancellationToken): Promise<
         {
             onMessage: Event<CommData>;
-            send(data: unknown, buffers?: (ArrayBuffer | ArrayBufferView)[]): void;
+            send(data: unknown, buffers?: (ArrayBuffer | ArrayBufferView)[]): Promise<void>;
         } & ObservableDisposable
     > {
         if (token.isCancellationRequested) {
@@ -301,14 +304,14 @@ class WrappedKernelPerExtension extends DisposableBase implements Kernel {
         }
         let isClosed = false;
         const onMessage = new EventEmitter<CommData>();
-        let sender: undefined | ((data: unknown) => void);
+        let sender: undefined | ((data: unknown) => Promise<void>);
         const commObject = new (class extends ObservableDisposable {
             readonly onMessage = onMessage.event;
             constructor() {
                 super();
                 this._register(onMessage);
             }
-            send(data: unknown): void {
+            async send(data: unknown): Promise<void> {
                 if (isClosed || this.isDisposed) {
                     throw new Error('Comm is closed');
                 }
@@ -318,23 +321,32 @@ class WrappedKernelPerExtension extends DisposableBase implements Kernel {
                 if (this.isDisposed) {
                     throw new Error('Comm is disposed');
                 }
-                sender(data);
+                await sender(data);
             }
         })();
 
+        this.kernel.session?.kernel?.username;
         return new Promise<typeof commObject>((resolve, reject) => {
+            const onDidCloseToken = new CancellationTokenSource();
+            commObject._register(new Disposable(() => onDidCloseToken.cancel()));
+            commObject._register(onDidCloseToken);
             const callback = (comm: IComm) => {
                 if (token.isCancellationRequested) {
                     comm.close();
                     return reject(new CancellationError());
                 }
                 commObject._register(new Disposable(() => (isClosed ? noop() : comm.close())));
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                sender = (data) => comm.send((data as any) || null);
+                sender = async (data) =>
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await sendAndWaitForCommMessage(kernel, comm, data as any, onDidCloseToken.token);
                 comm.onMsg = (e) => onMessage.fire({ data: e.content.data });
                 comm.onClose = () => {
+                    if (!isClosed) {
+                        return;
+                    }
                     isClosed = true;
                     commObject.dispose();
+                    onDidCloseToken.cancel();
                 };
                 resolve(commObject);
             };
@@ -343,6 +355,29 @@ class WrappedKernelPerExtension extends DisposableBase implements Kernel {
             kernel.registerCommTarget(this.extensionId, callback);
         });
     }
+}
+
+async function sendAndWaitForCommMessage(
+    kernel: IKernelConnection,
+    comm: IComm,
+    data: IOptions<ICommMsgMsg<'shell'>>['content']['data'],
+    token: CancellationToken
+) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const jupyterLab = require('@jupyterlab/services') as typeof import('@jupyterlab/services');
+    const msg = jupyterLab.KernelMessage.createMessage({
+        msgType: 'comm_msg',
+        channel: 'shell',
+        username: kernel.username,
+        session: kernel.clientId,
+        content: {
+            comm_id: comm.commId,
+            data
+        },
+        metadata: undefined,
+        buffers: undefined
+    });
+    await raceCancellationError(token, kernel.sendShellMessage(msg, true, true).done);
 }
 
 async function sendApiTelemetry(extensionId: string, kernel: IKernel, pemUsed: keyof Kernel, executionCount: number) {

@@ -56,7 +56,7 @@ declare module './api' {
             /**
              * Sends a message to the Kernel.
              */
-            send(data: unknown): void;
+            send(data: unknown): Promise<void>;
         }>;
     }
 }
