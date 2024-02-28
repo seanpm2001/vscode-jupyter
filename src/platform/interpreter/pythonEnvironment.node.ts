@@ -11,11 +11,12 @@ import { Uri } from 'vscode';
 import { IFileSystem } from '../common/platform/types';
 import { traceWarning } from '../logging';
 import { Environment } from '@vscode/python-extension';
+import { getCachedEnvironment } from './helpers';
 class PythonEnvironment {
     private readonly executable: Uri;
     private readonly pythonEnvId: string;
     constructor(
-        interpreter: { uri: Uri; id: string } | Environment,
+        interpreter: { id: string } | Environment,
         // "deps" is the externally defined functionality used by the class.
         protected readonly deps: {
             getPythonArgv(python: Uri): string[];
@@ -27,14 +28,11 @@ class PythonEnvironment {
         }
     ) {
         this.pythonEnvId = interpreter.id;
-        if ('executable' in interpreter) {
-            if (!interpreter.executable.uri) {
-                throw new Error(`interpreter.executable.uri is not defined for ${interpreter.id}`);
-            }
-            this.executable = interpreter.executable.uri;
-        } else {
-            this.executable = interpreter.uri;
+        const env = getCachedEnvironment(interpreter);
+        if (!env?.executable.uri) {
+            throw new Error(`interpreter.executable.uri is not defined for ${interpreter.id}`);
         }
+        this.executable = env.executable.uri;
     }
 
     public getExecutionInfo(pythonArgs: string[] = []): PythonExecInfo {
@@ -88,7 +86,7 @@ function createDeps(
 }
 
 export function createPythonEnv(
-    interpreter: { uri: Uri; id: string } | Environment,
+    interpreter: { id: string } | Environment,
     // These are used to generate the deps.
     procs: IProcessService,
     fs: IFileSystem
@@ -111,7 +109,7 @@ export function createCondaEnv(
         path: string;
         version?: SemVer;
     },
-    interpreter: { uri: Uri; id: string } | Environment,
+    interpreter: { id: string } | Environment,
     // These are used to generate the deps.
     procs: IProcessService,
     fs: IFileSystem

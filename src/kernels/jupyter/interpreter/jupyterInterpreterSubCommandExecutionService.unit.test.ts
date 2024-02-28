@@ -29,7 +29,7 @@ import { createObservable } from '../../../platform/common/process/proc.node';
 import { IDisposable } from '../../../platform/common/types';
 import { dispose } from '../../../platform/common/utils/lifecycle';
 import { PythonExtension } from '@vscode/python-extension';
-import { setPythonApi } from '../../../platform/interpreter/helpers';
+import { getEnvironmentExecutable, setPythonApi } from '../../../platform/interpreter/helpers';
 import { resolvableInstance } from '../../../test/datascience/helpers';
 use(chaiPromise);
 
@@ -352,7 +352,12 @@ suite('Jupyter InterpreterSubCommandExecutionService', () => {
                 undefined
             );
 
-            assert.equal(reason, DataScience.jupyterKernelSpecModuleNotFound(selectedJupyterInterpreter.uri.fsPath));
+            assert.equal(
+                reason,
+                DataScience.jupyterKernelSpecModuleNotFound(
+                    getEnvironmentExecutable(selectedJupyterInterpreter)?.fsPath || selectedJupyterInterpreter.id
+                )
+            );
         });
         test('Can start jupyer notebook', async () => {
             const output = await jupyterInterpreterExecutionService.startNotebook([], {});

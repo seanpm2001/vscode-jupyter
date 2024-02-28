@@ -14,6 +14,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { splitLines } from '../../common/helpers';
 import { IDisposable } from '../../common/types';
 import { dispose } from '../../common/utils/lifecycle';
+import { getEnvironmentExecutable } from '../../interpreter/helpers';
 
 /**
  * Node version of the code execution helper. Node version is necessary because we can't create processes in the web version.
@@ -48,9 +49,13 @@ export class CodeExecutionHelper extends CodeExecutionHelperBase {
             const processService = await this.processServiceFactory.create(resource);
 
             const [args, parse] = internalScripts.normalizeSelection();
-            const observable = processService.execObservable(getFilePath(interpreter?.uri) || 'python', args, {
-                throwOnStdErr: true
-            });
+            const observable = processService.execObservable(
+                getFilePath(getEnvironmentExecutable(interpreter)) || 'python',
+                args,
+                {
+                    throwOnStdErr: true
+                }
+            );
 
             // Read result from the normalization script from stdout, and resolve the promise when done.
             let normalized = '';

@@ -17,7 +17,7 @@ import {
     IPythonExecutionService
 } from './types.node';
 import { Environment } from '@vscode/python-extension';
-import { Uri, workspace } from 'vscode';
+import { workspace } from 'vscode';
 
 /**
  * Creates IPythonExecutionService objects. They can be either process based or daemon based.
@@ -72,7 +72,7 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
 }
 
 function createPythonService(
-    interpreter: { uri: Uri; id: string } | Environment,
+    interpreter: { id: string } | Environment,
     procService: IProcessService,
     fs: IFileSystem,
     conda?: [

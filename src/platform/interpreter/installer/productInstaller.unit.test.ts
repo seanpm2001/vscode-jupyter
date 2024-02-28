@@ -59,8 +59,7 @@ suite('DataScienceInstaller install', async () => {
 
     test('Will ignore with no installer modules', async () => {
         const testEnvironment: PythonEnvironment = {
-            id: interpreterPath.fsPath,
-            uri: interpreterPath
+            id: interpreterPath.fsPath
         };
         installationChannelManager
             .setup((c) => c.getInstallationChannels(TypeMoq.It.isAny()))
@@ -71,8 +70,7 @@ suite('DataScienceInstaller install', async () => {
 
     test('Will cancel when signaled', async () => {
         const testEnvironment: PythonEnvironment = {
-            id: interpreterPath.fsPath,
-            uri: interpreterPath
+            id: interpreterPath.fsPath
         };
         const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
         testInstaller.setup((c) => c.type).returns(() => ModuleInstallerType.Conda);
@@ -98,8 +96,7 @@ suite('DataScienceInstaller install', async () => {
 
     test('Will invoke conda for conda environments', async () => {
         const testEnvironment: PythonEnvironment = {
-            id: interpreterPath.fsPath,
-            uri: interpreterPath
+            id: interpreterPath.fsPath
         };
         const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
         testInstaller.setup((c) => c.type).returns(() => ModuleInstallerType.Conda);
@@ -125,7 +122,6 @@ suite('DataScienceInstaller install', async () => {
 
     test('Will invoke pip by default', async () => {
         const testEnvironment: PythonEnvironment = {
-            uri: interpreterPath,
             id: interpreterPath.fsPath
         };
         const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
@@ -153,8 +149,7 @@ suite('DataScienceInstaller install', async () => {
 
     test('Will invoke poetry', async () => {
         const testEnvironment: PythonEnvironment = {
-            id: interpreterPath.fsPath,
-            uri: interpreterPath
+            id: interpreterPath.fsPath
         };
         const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
 
@@ -181,8 +176,7 @@ suite('DataScienceInstaller install', async () => {
 
     test('Will invoke pipenv', async () => {
         const testEnvironment: PythonEnvironment = {
-            id: interpreterPath.fsPath,
-            uri: interpreterPath
+            id: interpreterPath.fsPath
         };
         const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
 

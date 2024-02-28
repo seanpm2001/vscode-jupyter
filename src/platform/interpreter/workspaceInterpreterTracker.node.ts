@@ -11,6 +11,7 @@ import { areInterpreterPathsSame } from '../pythonEnvironments/info/interpreter'
 import { IWorkspaceInterpreterTracker } from './types';
 import { getWorkspaceFolderIdentifier } from '../common/application/workspace.base';
 import { isWebExtension } from '../constants';
+import { getEnvironmentExecutable } from './helpers';
 
 /**
  * Tracks the interpreters in use for a workspace. Necessary to send kernel telemetry.
@@ -37,7 +38,7 @@ export class DesktopWorkspaceInterpreterTracker implements IWorkspaceInterpreter
         if (!activeInterpreterPath) {
             return false;
         }
-        return areInterpreterPathsSame(activeInterpreterPath, interpreter.uri);
+        return areInterpreterPathsSame(activeInterpreterPath, getEnvironmentExecutable(interpreter));
     }
     private trackActiveInterpreters() {
         if (isWebExtension()) {
@@ -57,7 +58,7 @@ export class DesktopWorkspaceInterpreterTracker implements IWorkspaceInterpreter
                         try {
                             const workspaceId = getWorkspaceFolderIdentifier(item);
                             const interpreter = await this.interpreterService.getActiveInterpreter(item);
-                            this.workspaceInterpreters.set(workspaceId, interpreter?.uri);
+                            this.workspaceInterpreters.set(workspaceId, getEnvironmentExecutable(interpreter));
                         } catch (ex) {
                             // Don't care.
                         }

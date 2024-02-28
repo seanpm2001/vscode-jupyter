@@ -19,7 +19,7 @@ import { CancellationTokenSource, Uri } from 'vscode';
 import { JupyterKernelService } from './jupyterKernelService.node';
 import { JupyterPaths } from '../../raw/finder/jupyterPaths.node';
 import { DisplayOptions } from '../../displayOptions';
-import { IWatchableJupyterSettings } from '../../../platform/common/types';
+import { IWatchableJupyterSettings, type IDisposable } from '../../../platform/common/types';
 import { ConfigurationService } from '../../../platform/common/configuration/service.node';
 import { JupyterSettings } from '../../../platform/common/configSettings';
 import { uriEquals } from '../../../test/datascience/helpers';
@@ -30,6 +30,8 @@ import { ICustomEnvironmentVariablesProvider } from '../../../platform/common/va
 import { EnvironmentVariablesService } from '../../../platform/common/variables/environment.node';
 import { isWeb } from '../../../platform/common/utils/misc';
 import { isPythonKernelConnection } from '../../helpers';
+import { crateMockedPythonApi, whenKnownEnvironments } from '../../helpers.unit.test';
+import { dispose } from '../../../platform/common/utils/lifecycle';
 
 // eslint-disable-next-line
 suite('JupyterKernelService', () => {
@@ -46,376 +48,373 @@ suite('JupyterKernelService', () => {
 
     // Set of kernels. Generated this by running the localKernelFinder unit test and stringifying
     // the results returned.
-    const kernels: LocalKernelConnectionMetadata[] = [
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: 'python\\share\\jupyter\\kernels\\interpreter.json',
-                interpreterPath: '/usr/bin/python3',
-                name: '70cbf3ad892a7619808baecec09fc6109e05177247350ed666cd97ce04371665',
-                argv: [
-                    os.platform() === 'win32' ? 'python.exe' : 'python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? 'python.exe' : 'python',
-                display_name: 'Python 3 Environment'
-            },
-            interpreter: {
-                id: '/usr/bin/python3',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3')
-            },
-            id: '0'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: 'conda\\share\\jupyter\\kernels\\interpreter.json',
-                interpreterPath: '/usr/bin/conda/python3',
-                name: '92d78b5b048d9cbeebb9834099d399dea5384db6f02b0829c247cc4679e7cb5d',
-                argv: [
-                    os.platform() === 'win32' ? 'python.exe' : 'python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? 'python.exe' : 'python',
-                display_name: 'Conda Environment'
-            },
-            interpreter: {
-                id: '/usr/bin/conda/python3',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/conda/python3.exe' : '/usr/bin/conda/python3')
-            },
-            id: '1'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '\\usr\\share\\jupyter\\kernels\\python3.json',
-                name: 'python3',
-                argv: [
-                    os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                display_name: 'Python 3 on Disk',
-                metadata: {
-                    interpreter: {
-                        path: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                        version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
-                    }
-                }
-            },
-            interpreter: {
-                id: '/usr/bin/python3',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3')
-            },
-            id: '2'
-        }),
-        LocalKernelSpecConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '\\usr\\share\\jupyter\\kernels\\julia.json',
-                name: 'julia',
-                argv: ['/usr/bin/julia'],
-                language: 'julia',
-                executable: '/usr/bin/julia',
-                display_name: 'Julia on Disk'
-            },
-            id: '3'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '\\usr\\share\\jupyter\\kernels\\python2.json',
-                name: 'python2',
-                argv: [
-                    os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
-                display_name: 'Python 2 on Disk'
-            },
-            interpreter: {
-                id: '/usr/bin/python',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python')
-            },
-            id: '4'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '\\usr\\local\\share\\jupyter\\kernels\\python3.json',
-                name: 'python3',
-                argv: [
-                    os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                display_name: 'Python 3 on Disk',
-                metadata: {
-                    interpreter: {
-                        path: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                        version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
-                    }
-                }
-            },
-            interpreter: {
-                id: '/usr/bin/python3',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3')
-            },
-            id: '5'
-        }),
-        LocalKernelSpecConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '\\usr\\local\\share\\jupyter\\kernels\\julia.json',
-                name: 'julia',
-                argv: ['/usr/bin/julia'],
-                language: 'julia',
-                executable: '/usr/bin/julia',
-                display_name: 'Julia on Disk'
-            },
-            id: '6'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '\\usr\\local\\share\\jupyter\\kernels\\python2.json',
-                name: 'python2',
-                argv: [
-                    os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
-                display_name: 'Python 2 on Disk'
-            },
-            interpreter: {
-                id: '/usr/bin/python',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python')
-            },
-            id: '7'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: 'C:\\Users\\Rich\\.local\\share\\jupyter\\kernels\\python3.json',
-                name: 'python3',
-                argv: [
-                    os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                display_name: 'Python 3 on Disk',
-                metadata: {
-                    interpreter: {
-                        path: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
-                        version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
-                    }
-                }
-            },
-            interpreter: {
-                id: '/usr/bin/python3',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3')
-            },
-            id: '8'
-        }),
-        LocalKernelSpecConnectionMetadata.create({
-            kernelSpec: {
-                specFile: 'C:\\Users\\Rich\\.local\\share\\jupyter\\kernels\\julia.json',
-                name: 'julia',
-                argv: ['/usr/bin/julia'],
-                language: 'julia',
-                executable: '/usr/bin/julia',
-                display_name: 'Julia on Disk'
-            },
-            id: '9'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: 'C:\\Users\\Rich\\.local\\share\\jupyter\\kernels\\python2.json',
-                name: 'python2',
-                argv: [
-                    os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
-                display_name: 'Python 2 on Disk'
-            },
-            interpreter: {
-                id: '/usr/bin/python',
-                uri: Uri.file(os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python')
-            },
-            id: '10'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                interpreterPath: '/usr/conda/envs/base/python',
-                name: 'e10e222d04b8ec3cc7034c3de1b1269b088e2bcd875030a8acab068e59af3990',
-                argv: [
-                    os.platform() === 'win32' ? 'python.exe' : 'python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable: os.platform() === 'win32' ? 'python.exe' : 'python',
-                display_name: 'Conda base environment',
-                metadata: {
-                    interpreter: {
-                        displayName: 'Conda base environment',
-                        path: '/usr/conda/envs/base/python'
-                    }
-                },
-                env: {},
-                specFile:
-                    '/usr/share../../kernels/e10e222d04b8ec3cc7034c3de1b1269b088e2bcd875030a8acab068e59af3990/kernel.json'
-            },
-            interpreter: {
-                id: '/usr/conda/envs/base/python',
-                uri: Uri.file(
-                    os.platform() === 'win32' ? '/usr/conda/envs/base/python.exe' : '/usr/conda/envs/base/python'
-                )
-            },
-            id: '11'
-        }),
-        PythonKernelConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '/usr/don/home/envs/sample/share../../kernels/sampleEnv/kernel.json',
-                name: 'sampleEnv',
-                argv: [
-                    os.platform() === 'win32'
-                        ? '/usr/don/home/envs/sample/bin/python.exe'
-                        : '/usr/don/home/envs/sample/bin/python',
-                    '-m',
-                    'ipykernel_launcher',
-                    '-f',
-                    '{connection_file}'
-                ],
-                language: 'python',
-                executable:
-                    os.platform() === 'win32'
-                        ? '/usr/don/home/envs/sample/bin/python.exe'
-                        : '/usr/don/home/envs/sample/bin/python',
-                display_name: 'Kernel with custom env Variable',
-                metadata: {
-                    interpreter: {
-                        path:
-                            os.platform() === 'win32'
-                                ? '/usr/don/home/envs/sample/bin/python.exe'
-                                : '/usr/don/home/envs/sample/bin/python',
-                        version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
-                    }
-                },
-                env: {
-                    SOME_ENV_VARIABLE: 'Hello World'
-                }
-            },
-            interpreter: {
-                id: '/usr/don/home/envs/sample/bin/python',
-                uri: Uri.file(
-                    os.platform() === 'win32'
-                        ? '/usr/don/home/envs/sample/bin/python.exe'
-                        : '/usr/don/home/envs/sample/bin/python'
-                )
-            },
-            id: '12'
-        }),
-        LocalKernelSpecConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '/usr/don/home/envs/sample/share../../kernels/sampleEnvJulia/kernel.json',
-                name: 'sampleEnvJulia',
-                argv: ['/usr/don/home/envs/sample/bin/julia'],
-                language: 'julia',
-                executable:
-                    os.platform() === 'win32'
-                        ? '/usr/don/home/envs/sample/bin/julia.exe'
-                        : '/usr/don/home/envs/sample/bin/julia',
-                display_name: 'Julia Kernel with custom env Variable',
-                metadata: {
-                    interpreter: {
-                        path:
-                            os.platform() === 'win32'
-                                ? '/usr/don/home/envs/sample/bin/python.exe'
-                                : '/usr/don/home/envs/sample/bin/python',
-                        version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
-                    }
-                },
-                env: {
-                    SOME_ENV_VARIABLE: 'Hello World'
-                }
-            },
-            interpreter: {
-                id: '/usr/don/home/envs/sample/bin/python',
-                uri: Uri.file(
-                    os.platform() === 'win32'
-                        ? '/usr/don/home/envs/sample/bin/python.exe'
-                        : '/usr/don/home/envs/sample/bin/python'
-                )
-            },
-            id: '13'
-        }),
-        LocalKernelSpecConnectionMetadata.create({
-            kernelSpec: {
-                specFile: '/usr/don/home/envs/sample/share../../kernels/sampleEnvJulia/kernel.json',
-                name: 'nameGeneratedByUsWhenRegisteringKernelSpecs',
-                argv: ['/usr/don/home/envs/sample/bin/julia'],
-                language: 'julia',
-                executable: '/usr/don/home/envs/sample/bin/python',
-                display_name: 'Julia Kernel with custom env Variable',
-                metadata: {
-                    interpreter: {
-                        path:
-                            os.platform() === 'win32'
-                                ? '/usr/don/home/envs/sample/bin/python.exe'
-                                : '/usr/don/home/envs/sample/bin/python',
-                        version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
-                    }
-                },
-                env: {
-                    SOME_ENV_VARIABLE: 'Hello World'
-                }
-            },
-            interpreter: {
-                id: '/usr/don/home/envs/sample/bin/python',
-                uri: Uri.file(
-                    os.platform() === 'win32'
-                        ? '/usr/don/home/envs/sample/bin/python.exe'
-                        : '/usr/don/home/envs/sample/bin/python'
-                )
-            },
-            id: '14'
-        })
-    ];
+    let kernels: LocalKernelConnectionMetadata[];
+    let disposables: IDisposable[] = [];
+
     suiteSetup(function () {
         if (isWeb()) {
             return this.skip();
         }
     });
+
     setup(() => {
         kernelDependencyService = mock(KernelDependencyService);
         fs = mock(FileSystem);
+        const environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([]);
+
+        kernels = [
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: 'python\\share\\jupyter\\kernels\\interpreter.json',
+                    interpreterPath: '/usr/bin/python3',
+                    name: '70cbf3ad892a7619808baecec09fc6109e05177247350ed666cd97ce04371665',
+                    argv: [
+                        os.platform() === 'win32' ? 'python.exe' : 'python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? 'python.exe' : 'python',
+                    display_name: 'Python 3 Environment'
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3').fsPath
+                },
+                id: '0'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: 'conda\\share\\jupyter\\kernels\\interpreter.json',
+                    interpreterPath: '/usr/bin/conda/python3',
+                    name: '92d78b5b048d9cbeebb9834099d399dea5384db6f02b0829c247cc4679e7cb5d',
+                    argv: [
+                        os.platform() === 'win32' ? 'python.exe' : 'python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? 'python.exe' : 'python',
+                    display_name: 'Conda Environment'
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/conda/python3.exe' : '/usr/bin/conda/python3')
+                        .fsPath
+                },
+                id: '1'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '\\usr\\share\\jupyter\\kernels\\python3.json',
+                    name: 'python3',
+                    argv: [
+                        os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                    display_name: 'Python 3 on Disk',
+                    metadata: {
+                        interpreter: {
+                            path: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                            version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
+                        }
+                    }
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3').fsPath
+                },
+                id: '2'
+            }),
+            LocalKernelSpecConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '\\usr\\share\\jupyter\\kernels\\julia.json',
+                    name: 'julia',
+                    argv: ['/usr/bin/julia'],
+                    language: 'julia',
+                    executable: '/usr/bin/julia',
+                    display_name: 'Julia on Disk'
+                },
+                id: '3'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '\\usr\\share\\jupyter\\kernels\\python2.json',
+                    name: 'python2',
+                    argv: [
+                        os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
+                    display_name: 'Python 2 on Disk'
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python').fsPath
+                },
+                id: '4'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '\\usr\\local\\share\\jupyter\\kernels\\python3.json',
+                    name: 'python3',
+                    argv: [
+                        os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                    display_name: 'Python 3 on Disk',
+                    metadata: {
+                        interpreter: {
+                            path: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                            version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
+                        }
+                    }
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3').fsPath
+                },
+                id: '5'
+            }),
+            LocalKernelSpecConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '\\usr\\local\\share\\jupyter\\kernels\\julia.json',
+                    name: 'julia',
+                    argv: ['/usr/bin/julia'],
+                    language: 'julia',
+                    executable: '/usr/bin/julia',
+                    display_name: 'Julia on Disk'
+                },
+                id: '6'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '\\usr\\local\\share\\jupyter\\kernels\\python2.json',
+                    name: 'python2',
+                    argv: [
+                        os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
+                    display_name: 'Python 2 on Disk'
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python').fsPath
+                },
+                id: '7'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: 'C:\\Users\\Rich\\.local\\share\\jupyter\\kernels\\python3.json',
+                    name: 'python3',
+                    argv: [
+                        os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                    display_name: 'Python 3 on Disk',
+                    metadata: {
+                        interpreter: {
+                            path: os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3',
+                            version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
+                        }
+                    }
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python3.exe' : '/usr/bin/python3').fsPath
+                },
+                id: '8'
+            }),
+            LocalKernelSpecConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: 'C:\\Users\\Rich\\.local\\share\\jupyter\\kernels\\julia.json',
+                    name: 'julia',
+                    argv: ['/usr/bin/julia'],
+                    language: 'julia',
+                    executable: '/usr/bin/julia',
+                    display_name: 'Julia on Disk'
+                },
+                id: '9'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: 'C:\\Users\\Rich\\.local\\share\\jupyter\\kernels\\python2.json',
+                    name: 'python2',
+                    argv: [
+                        os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python',
+                    display_name: 'Python 2 on Disk'
+                },
+                interpreter: {
+                    id: Uri.file(os.platform() === 'win32' ? '/usr/bin/python.exe' : '/usr/bin/python').fsPath
+                },
+                id: '10'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    interpreterPath: '/usr/conda/envs/base/python',
+                    name: 'e10e222d04b8ec3cc7034c3de1b1269b088e2bcd875030a8acab068e59af3990',
+                    argv: [
+                        os.platform() === 'win32' ? 'python.exe' : 'python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable: os.platform() === 'win32' ? 'python.exe' : 'python',
+                    display_name: 'Conda base environment',
+                    metadata: {
+                        interpreter: {
+                            displayName: 'Conda base environment',
+                            path: '/usr/conda/envs/base/python'
+                        }
+                    },
+                    env: {},
+                    specFile:
+                        '/usr/share../../kernels/e10e222d04b8ec3cc7034c3de1b1269b088e2bcd875030a8acab068e59af3990/kernel.json'
+                },
+                interpreter: {
+                    id: Uri.file(
+                        os.platform() === 'win32' ? '/usr/conda/envs/base/python.exe' : '/usr/conda/envs/base/python'
+                    ).fsPath
+                },
+                id: '11'
+            }),
+            PythonKernelConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '/usr/don/home/envs/sample/share../../kernels/sampleEnv/kernel.json',
+                    name: 'sampleEnv',
+                    argv: [
+                        os.platform() === 'win32'
+                            ? '/usr/don/home/envs/sample/bin/python.exe'
+                            : '/usr/don/home/envs/sample/bin/python',
+                        '-m',
+                        'ipykernel_launcher',
+                        '-f',
+                        '{connection_file}'
+                    ],
+                    language: 'python',
+                    executable:
+                        os.platform() === 'win32'
+                            ? '/usr/don/home/envs/sample/bin/python.exe'
+                            : '/usr/don/home/envs/sample/bin/python',
+                    display_name: 'Kernel with custom env Variable',
+                    metadata: {
+                        interpreter: {
+                            path:
+                                os.platform() === 'win32'
+                                    ? '/usr/don/home/envs/sample/bin/python.exe'
+                                    : '/usr/don/home/envs/sample/bin/python',
+                            version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
+                        }
+                    },
+                    env: {
+                        SOME_ENV_VARIABLE: 'Hello World'
+                    }
+                },
+                interpreter: {
+                    id: Uri.file(
+                        os.platform() === 'win32'
+                            ? '/usr/don/home/envs/sample/bin/python.exe'
+                            : '/usr/don/home/envs/sample/bin/python'
+                    ).fsPath
+                },
+                id: '12'
+            }),
+            LocalKernelSpecConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '/usr/don/home/envs/sample/share../../kernels/sampleEnvJulia/kernel.json',
+                    name: 'sampleEnvJulia',
+                    argv: ['/usr/don/home/envs/sample/bin/julia'],
+                    language: 'julia',
+                    executable:
+                        os.platform() === 'win32'
+                            ? '/usr/don/home/envs/sample/bin/julia.exe'
+                            : '/usr/don/home/envs/sample/bin/julia',
+                    display_name: 'Julia Kernel with custom env Variable',
+                    metadata: {
+                        interpreter: {
+                            path:
+                                os.platform() === 'win32'
+                                    ? '/usr/don/home/envs/sample/bin/python.exe'
+                                    : '/usr/don/home/envs/sample/bin/python',
+                            version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
+                        }
+                    },
+                    env: {
+                        SOME_ENV_VARIABLE: 'Hello World'
+                    }
+                },
+                interpreter: {
+                    id: Uri.file(
+                        os.platform() === 'win32'
+                            ? '/usr/don/home/envs/sample/bin/python.exe'
+                            : '/usr/don/home/envs/sample/bin/python'
+                    ).fsPath
+                },
+                id: '13'
+            }),
+            LocalKernelSpecConnectionMetadata.create({
+                kernelSpec: {
+                    specFile: '/usr/don/home/envs/sample/share../../kernels/sampleEnvJulia/kernel.json',
+                    name: 'nameGeneratedByUsWhenRegisteringKernelSpecs',
+                    argv: ['/usr/don/home/envs/sample/bin/julia'],
+                    language: 'julia',
+                    executable: '/usr/don/home/envs/sample/bin/python',
+                    display_name: 'Julia Kernel with custom env Variable',
+                    metadata: {
+                        interpreter: {
+                            path:
+                                os.platform() === 'win32'
+                                    ? '/usr/don/home/envs/sample/bin/python.exe'
+                                    : '/usr/don/home/envs/sample/bin/python',
+                            version: { major: 3, minor: 8, raw: '3.8', patch: 0 }
+                        }
+                    },
+                    env: {
+                        SOME_ENV_VARIABLE: 'Hello World'
+                    }
+                },
+                interpreter: {
+                    id: Uri.file(
+                        os.platform() === 'win32'
+                            ? '/usr/don/home/envs/sample/bin/python.exe'
+                            : '/usr/don/home/envs/sample/bin/python'
+                    ).fsPath
+                },
+                id: '14'
+            })
+        ];
+
         when(fs.exists(anything())).thenCall((p: Uri) => {
             const match = kernels.find((k) => p.fsPath.includes(k.kernelSpec?.name));
             if (match) {
@@ -459,6 +458,10 @@ suite('JupyterKernelService', () => {
             kernelEnvService
         );
     });
+    teardown(() => {
+        disposables = dispose(disposables);
+    });
+
     test('Dependencies checked on all kernels with interpreters', async () => {
         const token = new CancellationTokenSource();
         await Promise.all(

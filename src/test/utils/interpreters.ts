@@ -12,7 +12,7 @@ import { PythonEnvironment } from '../../platform/pythonEnvironments/info';
  * @param {Partial<PythonEnvironment>} [info]
  * @returns {PythonEnvironment}
  */
-export function createPythonInterpreter(info?: Partial<PythonEnvironment>): PythonEnvironment {
+export function createPythonInterpreter(info?: Partial<PythonEnvironment>): PythonEnvironment & { uri: Uri } {
     const rnd = new Date().getTime().toString();
     return {
         id: Uri.file(`somePath${rnd}`).path,

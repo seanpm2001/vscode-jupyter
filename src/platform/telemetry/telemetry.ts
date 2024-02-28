@@ -16,8 +16,8 @@ type Context = {
     previouslySelectedKernelConnectionId: string;
 };
 export const trackedInfo = new Map<string, [ResourceSpecificTelemetryProperties, Context]>();
-export const pythonEnvironmentsByHash = new Map<string, PythonEnvironment>();
-type InterpreterPackageProvider = (interpreter: PythonEnvironment) => Promise<Map<string, string>>;
+export const pythonEnvironmentsByHash = new Map<string, { id: string }>();
+type InterpreterPackageProvider = (interpreter: { id: string }) => Promise<Map<string, string>>;
 let _interpreterPackageProvider: InterpreterPackageProvider | undefined;
 export function initializeGlobals(interpreterPackageProvider: InterpreterPackageProvider) {
     _interpreterPackageProvider = interpreterPackageProvider;
@@ -59,7 +59,7 @@ async function getPythonEnvironmentPackages(options: { interpreter: PythonEnviro
         traceError(`Python package provider is not initialized.`);
         return '{}';
     }
-    let interpreter: PythonEnvironment | undefined;
+    let interpreter: { id: string } | undefined;
     if ('interpreter' in options) {
         interpreter = options.interpreter;
     } else {

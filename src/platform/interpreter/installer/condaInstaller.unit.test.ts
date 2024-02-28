@@ -63,7 +63,6 @@ suite('Common - Conda Installer', () => {
     });
     test('Installer is not supported when conda is available variable is set to false', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
 
@@ -75,7 +74,6 @@ suite('Common - Conda Installer', () => {
     });
     test('Installer is not supported when conda is not available', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         when(condaService.isCondaAvailable()).thenResolve(false);
@@ -86,7 +84,6 @@ suite('Common - Conda Installer', () => {
     });
     test('Installer is not supported when current env is not a conda env', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         const settings = mock(JupyterSettings);
@@ -100,7 +97,6 @@ suite('Common - Conda Installer', () => {
     });
     test('Installer is supported when current env is a conda env', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         when(environments.known).thenReturn([
@@ -121,15 +117,12 @@ suite('Common - Conda Installer', () => {
     });
     test('Include name of environment', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         when(environments.known).thenReturn([
             {
                 id: interpreter.id,
-                executable: {
-                    uri: Uri.file('foobar')
-                },
+                executable: {},
                 environment: {
                     name: 'baz'
                 },
@@ -152,16 +145,13 @@ suite('Common - Conda Installer', () => {
     });
     test('When conda exec path is conda, then do not use /conda as the executable path', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         const settings = mock(JupyterSettings);
         when(environments.known).thenReturn([
             {
                 id: interpreter.id,
-                executable: {
-                    uri: Uri.file('foobar')
-                },
+                executable: {},
                 environment: {
                     name: 'baz'
                 },
@@ -182,7 +172,6 @@ suite('Common - Conda Installer', () => {
     test('Include path of environment', async () => {
         const settings = mock(JupyterSettings);
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('baz/foobar/python.exe'),
             id: Uri.file('baz/foobar/python.exe').fsPath
         };
         const condaPath = Uri.file('some Conda Path');
@@ -200,7 +189,6 @@ suite('Common - Conda Installer', () => {
     test('Include path of environment but skip bin', async () => {
         const settings = mock(JupyterSettings);
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('baz/foobar/bin/python.exe'),
             id: Uri.file('baz/foobar/bin/python.exe').fsPath
         };
         const condaPath = Uri.file('some Conda Path');

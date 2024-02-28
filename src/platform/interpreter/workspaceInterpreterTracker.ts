@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 import { Resource } from '../common/types';
-import { PythonEnvironment } from '../pythonEnvironments/info';
 import { IExtensionSyncActivationService } from '../activation/types';
 import { inject, injectable, optional } from 'inversify';
 import { IWorkspaceInterpreterTracker } from './types';
@@ -13,7 +12,7 @@ import { IWorkspaceInterpreterTracker } from './types';
  */
 @injectable()
 export class WorkspaceInterpreterTracker implements IExtensionSyncActivationService {
-    public static isActiveWorkspaceInterpreter: (resource: Resource, interpreter?: PythonEnvironment) => boolean = () =>
+    public static isActiveWorkspaceInterpreter: (resource: Resource, interpreter?: { id: string }) => boolean = () =>
         false;
     constructor(
         @inject(IWorkspaceInterpreterTracker)
@@ -25,7 +24,7 @@ export class WorkspaceInterpreterTracker implements IExtensionSyncActivationServ
     public activate() {
         this.workspaceInterpreterTracker?.activate();
     }
-    public isActiveWorkspaceInterpreterImpl(resource: Resource, interpreter?: PythonEnvironment) {
+    public isActiveWorkspaceInterpreterImpl(resource: Resource, interpreter?: { id: string }) {
         return this.workspaceInterpreterTracker?.isActiveWorkspaceInterpreter(resource, interpreter) ?? false;
     }
 }

@@ -12,7 +12,6 @@ import { DataScience } from '../../../platform/common/utils/localize';
 import { PromiseMonitor } from '../../../platform/common/utils/promises';
 import { JupyterPaths } from '../../../kernels/raw/finder/jupyterPaths.node';
 import { IPythonApiProvider, IPythonExtensionChecker } from '../../../platform/api/types';
-import { pythonEnvToJupyterEnv } from '../../../platform/api/pythonApi';
 import { createInterpreterKernelSpec, getKernelId } from '../../../kernels/helpers';
 import { Environment, EnvironmentPath } from '@vscode/python-extension';
 import { noop } from '../../../platform/common/utils/misc';
@@ -26,6 +25,7 @@ import { ServiceContainer } from '../../../platform/ioc/container';
 import { IInterpreterService } from '../../../platform/interpreter/contracts';
 import { traceWarning } from '../../../platform/logging';
 import { getDisplayPath } from '../../../platform/common/platform/fs-paths';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 export type MultiStepResult<T extends KernelConnectionMetadata = KernelConnectionMetadata> = {
     notebook: NotebookDocument;
@@ -209,15 +209,15 @@ export class LocalPythonEnvNotebookKernelSourceSelector
         );
     }
     private async buildDummyEnvironment(e: Environment) {
-        const interpreter = pythonEnvToJupyterEnv(e);
-        if (!interpreter || this.filter.isPythonEnvironmentExcluded(interpreter)) {
+        const interpreter = getEnvironmentExecutable(e);
+        if (!interpreter || this.filter.isPythonEnvironmentExcluded(e)) {
             return;
         }
-        const spec = await createInterpreterKernelSpec(interpreter, await this.getKernelSpecsDir());
+        const spec = await createInterpreterKernelSpec(e, await this.getKernelSpecsDir());
         const result = PythonKernelConnectionMetadata.create({
             kernelSpec: spec,
-            interpreter: interpreter,
-            id: getKernelId(spec, interpreter)
+            interpreter: e,
+            id: getKernelId(spec, e)
         });
 
         const existingInterpreterInfo = this._kernels.get(e.id);

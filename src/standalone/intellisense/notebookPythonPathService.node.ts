@@ -16,6 +16,7 @@ import { noop } from '../../platform/common/utils/misc';
 import { raceTimeout } from '../../platform/common/utils/async';
 import * as fs from 'fs-extra';
 import { getNotebookUriFromInputBoxUri } from './notebookPythonPathService';
+import { getEnvironmentExecutable } from '../../platform/interpreter/helpers';
 
 /**
  * Manages use of the Python extension's registerJupyterPythonPathFunction API which
@@ -160,7 +161,7 @@ del _VSCODE_os, _VSCODE_sys, _VSCODE_builtins
             traceInfo(`No interpreter for Pylance for Notebook URI "${getDisplayPath(notebook.uri)}"`);
             return '';
         }
-        return getFilePath(interpreter.uri);
+        return getFilePath(getEnvironmentExecutable(interpreter));
     }
 
     private _getNotebookUriForTextDocumentUri(textDocumentUri: Uri): Uri | undefined {

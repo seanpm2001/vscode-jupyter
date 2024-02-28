@@ -101,6 +101,7 @@ import { ControllerPreferredService } from './controllerPreferredService';
 import { JupyterConnection } from '../../../kernels/jupyter/connection/jupyterConnection';
 import { JupyterLabHelper } from '../../../kernels/jupyter/session/jupyterLabHelper';
 import { getRootFolder } from '../../../platform/common/application/workspace.base';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 // Running in Conda environments, things can be a little slower.
 export const defaultNotebookTestTimeout = 60_000;
@@ -466,9 +467,14 @@ async function waitForKernelToChangeImpl(
             controller = controllerRegistration.registered
                 .filter((k) => k.connection.interpreter)
                 .filter((k) => (criteria.isInteractiveController ? k.id.includes(InteractiveControllerIdSuffix) : true))
-                .find((k) =>
-                    // eslint-disable-next-line local-rules/dont-use-fspath
-                    k.connection.interpreter!.uri.fsPath.toLowerCase().includes(interpreterPath.fsPath.toLowerCase())
+                .find(
+                    (k) =>
+                        k.connection.interpreter &&
+                        // eslint-disable-next-line local-rules/dont-use-fspath
+                        getEnvironmentExecutable(k.connection.interpreter)!
+                            .fsPath.toLowerCase()
+                            // eslint-disable-next-line local-rules/dont-use-fspath
+                            .includes(interpreterPath.fsPath.toLowerCase())
                 );
             if (controller) {
                 // eslint-disable-next-line local-rules/dont-use-fspath
@@ -484,8 +490,10 @@ async function waitForKernelToChangeImpl(
                     (c) =>
                         `${c.kind} with id ${c.id} and ${
                             'interpreter' in c
-                                ? // eslint-disable-next-line local-rules/dont-use-fspath
-                                  `has interpreter with details = ${c.interpreter?.id}:${c.interpreter?.uri.fsPath}`
+                                ? `has interpreter with details = ${c.interpreter?.id}:${
+                                      // eslint-disable-next-line local-rules/dont-use-fspath
+                                      c.interpreter ? getEnvironmentExecutable(c.interpreter)?.fsPath : ''
+                                  }`
                                 : 'does not have an interpreter'
                         } `
                 )
@@ -566,15 +574,18 @@ async function getActiveInterpreterKernelConnection() {
             kernelFinder.kernels.find(
                 (item) =>
                     item.kind === 'startUsingPythonInterpreter' &&
-                    areInterpreterPathsSame(item.interpreter.uri, interpreter.uri)
+                    areInterpreterPathsSame(
+                        getEnvironmentExecutable(item.interpreter),
+                        getEnvironmentExecutable(interpreter)
+                    )
             ) as PythonKernelConnectionMetadata,
         defaultNotebookTestTimeout,
         () =>
             `Kernel Connection pointing to active interpreter not found.0, active interpreter
-        ${interpreter?.id} (${getDisplayPath(interpreter?.uri)}) for kernels (${
+        ${interpreter?.id} (${getDisplayPath(getEnvironmentExecutable(interpreter))}) for kernels (${
             kernelFinder.kernels.length
         }) ${kernelFinder.kernels
-            .map((item) => `${item.id}=> ${item.kind} (${getDisplayPath(item.interpreter?.uri)})`)
+            .map((item) => `${item.id}=> ${item.kind} (${getDisplayPath(item.interpreter?.id)})`)
             .join(', ')}`,
         500
     );
@@ -596,8 +607,13 @@ async function getDefaultPythonRemoteKernelConnectionForActiveInterpreter() {
         defaultNotebookTestTimeout,
         () =>
             `Kernel Connection pointing to active interpreter not found.1, active interpreter
-            ${interpreter?.id} (${getDisplayPath(interpreter?.uri)}) for kernels ${kernelFinder.kernels
-                .map((item) => `${item.id}=> ${item.kind} (${getDisplayPath(item.interpreter?.uri)})`)
+            ${interpreter?.id} (${getDisplayPath(
+                getEnvironmentExecutable(interpreter)
+            )}) for kernels ${kernelFinder.kernels
+                .map(
+                    (item) =>
+                        `${item.id}=> ${item.kind} (${getDisplayPath(getEnvironmentExecutable(item.interpreter))})`
+                )
                 .join(', ')}`,
         500
     );
@@ -626,10 +642,15 @@ async function selectActiveInterpreterController(notebookEditor: NotebookEditor,
                     k.connection.kind === 'startUsingPythonInterpreter' &&
                     (k.connection.kernelSpec.language || PYTHON_LANGUAGE).toLowerCase() ===
                         PYTHON_LANGUAGE.toLowerCase() &&
-                    areInterpreterPathsSame(k.connection.interpreter.uri, interpreter?.uri)
+                    areInterpreterPathsSame(
+                        getEnvironmentExecutable(k.connection.interpreter),
+                        getEnvironmentExecutable(interpreter)
+                    )
             ),
         timeout,
-        `No matching controller found for interpreter ${interpreter?.id}:${getDisplayPath(interpreter?.uri)}`
+        `No matching controller found for interpreter ${interpreter?.id}:${getDisplayPath(
+            getEnvironmentExecutable(interpreter)
+        )}`
     );
     if (!controller) {
         throw new Error('No interpreter controller');
@@ -788,11 +809,16 @@ export async function waitForKernelToGetAutoSelectedImpl(
 
             const activeInterpreter = await interpreterService?.getActiveInterpreter(notebookEditor!.notebook.uri);
             traceInfoIfCI(
-                `Attempt to find a kernel that matches the active interpreter ${activeInterpreter?.uri.path}`
+                `Attempt to find a kernel that matches the active interpreter ${getEnvironmentExecutable(
+                    activeInterpreter
+                )?.path}`
             );
             traceInfoIfCI(
                 `Matches: ${matches
-                    .map((m) => m.connection.kind + ', ' + m.connection.interpreter?.uri.path)
+                    .map(
+                        (m) =>
+                            m.connection.kind + ', ' + (getEnvironmentExecutable(m.connection.interpreter)?.path || '')
+                    )
                     .join('\n ')}`
             );
 
@@ -802,7 +828,10 @@ export async function waitForKernelToGetAutoSelectedImpl(
                         d.connection.kind === 'startUsingPythonInterpreter' &&
                         d.connection.interpreter &&
                         activeInterpreter &&
-                        areInterpreterPathsSame(d.connection.interpreter.uri, activeInterpreter.uri)
+                        areInterpreterPathsSame(
+                            getEnvironmentExecutable(d.connection.interpreter),
+                            getEnvironmentExecutable(activeInterpreter)
+                        )
                 ) ?? matches[0];
         }
 

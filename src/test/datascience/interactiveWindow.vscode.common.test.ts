@@ -55,6 +55,7 @@ import { format } from 'util';
 import { InteractiveWindow } from '../../interactive-window/interactiveWindow';
 import { isSysInfoCell } from '../../interactive-window/systemInfoCell';
 import { getNotebookUriFromInputBoxUri } from '../../standalone/intellisense/notebookPythonPathService';
+import { getEnvironmentExecutable } from '../../platform/interpreter/helpers';
 
 suite(`Interactive window execution @iw`, async function () {
     this.timeout(120_000);
@@ -105,15 +106,18 @@ suite(`Interactive window execution @iw`, async function () {
 
         const controller = notebookDocument ? controllerRegistration.getSelected(notebookDocument) : undefined;
         if (!IS_REMOTE_NATIVE_TEST()) {
-            const activeInterpreter = await interpreterService.getActiveInterpreter();
+            const activeInterpreter = getEnvironmentExecutable(await interpreterService.getActiveInterpreter());
             assert.ok(
-                areInterpreterPathsSame(controller?.connection.interpreter?.uri, activeInterpreter?.uri),
+                areInterpreterPathsSame(
+                    getEnvironmentExecutable(controller?.connection.interpreter),
+                    activeInterpreter
+                ),
                 `Controller does not match active interpreter for ${getDisplayPath(
                     notebookDocument?.uri
                 )}, active interpreter is ${getDisplayPath(
-                    activeInterpreter?.uri
+                    activeInterpreter
                 )} and controller is ${controller?.id} with interpreter ${getDisplayPath(
-                    controller?.connection?.interpreter?.uri
+                    getEnvironmentExecutable(controller?.connection?.interpreter)
                 )}`
             );
         }
@@ -370,15 +374,18 @@ ${actualCode}
             const interpreterService = api.serviceManager.get<IInterpreterService>(IInterpreterService);
             const controllerSelection = api.serviceManager.get<IControllerRegistration>(IControllerRegistration);
             const controller = notebookDocument ? controllerSelection.getSelected(notebookDocument) : undefined;
-            const activeInterpreter = await interpreterService.getActiveInterpreter();
+            const activeInterpreter = getEnvironmentExecutable(await interpreterService.getActiveInterpreter());
             assert.ok(
-                areInterpreterPathsSame(controller?.connection.interpreter?.uri, activeInterpreter?.uri),
+                areInterpreterPathsSame(
+                    getEnvironmentExecutable(controller?.connection.interpreter),
+                    activeInterpreter
+                ),
                 `Controller does not match active interpreter for ${getDisplayPath(
                     notebookDocument?.uri
                 )}, active interpreter is ${getDisplayPath(
-                    activeInterpreter?.uri
+                    activeInterpreter
                 )} and controller is ${controller?.id} with interpreter ${getDisplayPath(
-                    controller?.connection?.interpreter?.uri
+                    getEnvironmentExecutable(controller?.connection?.interpreter)
                 )}`
             );
         }

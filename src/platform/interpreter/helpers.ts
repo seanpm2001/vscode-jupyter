@@ -7,6 +7,8 @@ import { basename } from '../../platform/vscode-path/resources';
 import { Environment, KnownEnvironmentTools, KnownEnvironmentTypes, PythonExtension } from '@vscode/python-extension';
 import { traceWarning } from '../logging';
 import { getDisplayPath } from '../common/platform/fs-paths';
+import { Uri } from 'vscode';
+import { getOSType, OSType } from '../common/utils/platform';
 
 export function getPythonEnvDisplayName(interpreter: PythonEnvironment | Environment | { id: string }) {
     const env = getCachedEnvironment(interpreter);
@@ -55,7 +57,7 @@ export function getPythonEnvDisplayName(interpreter: PythonEnvironment | Environ
     return [nameWithVersion, details.length ? `(${details.join(': ')})` : ''].join(' ').trim();
 }
 
-export function getPythonEnvironmentName(pythonEnv: PythonEnvironment) {
+export function getPythonEnvironmentName(pythonEnv: { id: string }) {
     // Sometimes Python extension doesn't detect conda environments correctly (e.g. conda env create without a name).
     // In such cases the envName is empty, but it has a path.
     const env = getCachedEnvironment(pythonEnv);
@@ -145,7 +147,13 @@ export function getCachedEnvironment(interpreter?: { id: string }) {
     if (!pythonApi) {
         throw new Error('Python API not initialized');
     }
-    return pythonApi.environments.known.find((i) => i.id === interpreter.id);
+    const uri = Uri.file(interpreter.id);
+    return (
+        pythonApi.environments.known.find((i) => i.id === interpreter.id) ||
+        // Possible the id is actually the exeuctable uri
+        // In legacy code we used to pass the executable uri around.
+        pythonApi.environments.known.find((i) => i.executable.uri?.path === uri.path)
+    );
 }
 
 export async function getSysPrefix(interpreter?: { id: string }) {
@@ -177,11 +185,11 @@ export function getCachedSysPrefix(interpreter?: { id: string }) {
     const cachedInfo = pythonApi.environments.known.find((i) => i.id === interpreter.id);
     return cachedInfo?.executable?.sysPrefix;
 }
-export async function getVersion(interpreter?: { id?: string }) {
+export async function getVersion(interpreter?: { id?: string }, ignoreCache = false) {
     if (!interpreter?.id) {
         return;
     }
-    if (pythonApi) {
+    if (pythonApi && !ignoreCache) {
         const cachedInfo = pythonApi.environments.known.find((i) => i.id === interpreter.id);
         if (cachedInfo?.version) {
             return cachedInfo.version;
@@ -212,4 +220,25 @@ export function getCachedEnvironments() {
         return [];
     }
     return pythonApi.environments.known;
+}
+
+export function getEnvironmentExecutable(env?: { id: string }): Uri | undefined {
+    if (!env) {
+        return;
+    }
+    const envInfo = getCachedEnvironment(env);
+    if (!envInfo) {
+        traceWarning(`Python environment ${getDisplayPath(env.id)} not found`);
+        return;
+    }
+    if (envInfo.executable.uri) {
+        return envInfo.executable.uri;
+    }
+    if (getEnvironmentType(envInfo) === EnvironmentType.Conda) {
+        return getOSType() === OSType.Windows
+            ? Uri.joinPath(envInfo.environment?.folderUri || Uri.file(envInfo.path), 'python.exe')
+            : Uri.joinPath(envInfo.environment?.folderUri || Uri.file(envInfo.path), 'bin', 'python');
+    }
+    traceWarning(`Python environment ${getDisplayPath(env.id)} excluded as Uri is undefined`);
+    return;
 }

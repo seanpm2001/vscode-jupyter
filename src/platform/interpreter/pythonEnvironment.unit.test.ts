@@ -12,7 +12,10 @@ import { getFilePath } from '../common/platform/fs-paths';
 import { IFileSystem } from '../common/platform/types';
 import { IProcessService, StdErrError } from '../common/process/types.node';
 import { createCondaEnv, createPythonEnv } from './pythonEnvironment.node';
-import { PythonEnvironment } from '../pythonEnvironments/info';
+import type { IDisposable } from '@c4312/evt';
+import type { PythonExtension } from '@vscode/python-extension';
+import { crateMockedPythonApi, whenKnownEnvironments } from '../../kernels/helpers.unit.test';
+import { dispose } from '../common/utils/lifecycle';
 
 use(chaiAsPromised);
 
@@ -20,22 +23,35 @@ suite('PythonEnvironment', () => {
     let processService: TypeMoq.IMock<IProcessService>;
     let fileSystem: IFileSystem;
     const pythonPath = Uri.file('path/to/python');
+    let disposables: IDisposable[] = [];
+    let environments: PythonExtension['environments'];
 
     setup(() => {
         processService = TypeMoq.Mock.ofType<IProcessService>(undefined, TypeMoq.MockBehavior.Strict);
         fileSystem = mock<IFileSystem>();
+        environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: pythonPath.fsPath,
+                executable: {
+                    uri: pythonPath
+                }
+            }
+        ]);
     });
+    teardown(() => (disposables = dispose(disposables)));
+
     test('getExecutablePath should return pythonPath if pythonPath is a file', async () => {
         when(fileSystem.exists(anything())).thenCall((file: Uri) => file.fsPath === pythonPath.fsPath);
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         const result = await env.getExecutablePath();
 
-        expect(result).to.equal(pythonPath, "getExecutablePath() sbould return pythonPath if it's a file");
+        expect(result.fsPath).to.equal(
+            pythonPath.fsPath,
+            "getExecutablePath() sbould return pythonPath if it's a file"
+        );
     });
 
     test('getExecutablePath should not return pythonPath if pythonPath is not a file', async () => {
@@ -45,11 +61,8 @@ suite('PythonEnvironment', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), argv, { throwOnStdErr: true }))
             .returns(() => Promise.resolve({ stdout: executablePath }));
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         const result = await env.getExecutablePath();
 
@@ -66,11 +79,8 @@ suite('PythonEnvironment', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), argv, { throwOnStdErr: true }))
             .returns(() => Promise.reject(new StdErrError(stderr)));
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         const result = env.getExecutablePath();
 
@@ -84,11 +94,8 @@ suite('PythonEnvironment', () => {
             .setup((p) => p.exec(getFilePath(pythonPath), argv, { throwOnStdErr: false }))
             .returns(() => Promise.resolve({ stdout: '6af208d0-cb9c-427f-b937-ff563e17efdf' }))
             .verifiable(TypeMoq.Times.once());
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         await env.isModuleInstalled(moduleName);
 
@@ -101,11 +108,8 @@ suite('PythonEnvironment', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), argv, { throwOnStdErr: false }))
             .returns(() => Promise.resolve({ stdout: '6af208d0-cb9c-427f-b937-ff563e17efdf' }));
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         const result = await env.isModuleInstalled(moduleName);
 
@@ -118,11 +122,7 @@ suite('PythonEnvironment', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), argv, { throwOnStdErr: false }))
             .returns(() => Promise.reject(new StdErrError('bar')));
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         const result = await env.isModuleInstalled(moduleName);
 
@@ -131,11 +131,7 @@ suite('PythonEnvironment', () => {
 
     test('getExecutionInfo should return pythonPath and the execution arguments as is', () => {
         const args = ['-a', 'b', '-c'];
-        const env = createPythonEnv(
-            { uri: pythonPath } as PythonEnvironment,
-            processService.object,
-            instance(fileSystem)
-        );
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, instance(fileSystem));
 
         const result = env.getExecutionInfo(args);
 
@@ -157,18 +153,31 @@ suite('CondaEnvironment', () => {
     const args = ['-a', 'b', '-c'];
     const pythonPath = Uri.file('path/to/python');
     const condaFile = 'path/to/conda';
+    let disposables: IDisposable[] = [];
+    let environments: PythonExtension['environments'];
 
     setup(() => {
         processService = TypeMoq.Mock.ofType<IProcessService>(undefined, TypeMoq.MockBehavior.Strict);
         fileSystem = mock<IFileSystem>();
+        environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: pythonPath.fsPath,
+                executable: {
+                    uri: pythonPath
+                }
+            }
+        ]);
     });
+
+    teardown(() => (disposables = dispose(disposables)));
 
     test('getExecutionInfo with a named environment should return execution info using the environment name', () => {
         const condaInfo = { name: 'foo', path: 'bar', version: undefined };
         const env = createCondaEnv(
             condaFile,
             condaInfo,
-            { uri: pythonPath } as PythonEnvironment,
+            { id: pythonPath.fsPath },
             processService.object,
             instance(fileSystem)
         );
@@ -188,7 +197,7 @@ suite('CondaEnvironment', () => {
         const env = createCondaEnv(
             condaFile,
             condaInfo,
-            { uri: pythonPath } as PythonEnvironment,
+            { id: pythonPath.fsPath },
             processService.object,
             instance(fileSystem)
         );
@@ -214,7 +223,7 @@ suite('CondaEnvironment', () => {
         const env = createCondaEnv(
             condaFile,
             condaInfo,
-            { uri: pythonPath } as PythonEnvironment,
+            { id: pythonPath.fsPath },
             processService.object,
             instance(fileSystem)
         );
@@ -235,7 +244,7 @@ suite('CondaEnvironment', () => {
         const env = createCondaEnv(
             condaFile,
             condaInfo,
-            { uri: pythonPath } as PythonEnvironment,
+            { id: pythonPath.fsPath },
             processService.object,
             instance(fileSystem)
         );

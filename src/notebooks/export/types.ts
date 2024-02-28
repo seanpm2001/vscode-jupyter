@@ -17,7 +17,7 @@ export interface IFileConverter {
         format: ExportFormat,
         sourceDocument: NotebookDocument,
         defaultFileName?: string,
-        candidateInterpreter?: PythonEnvironment
+        candidateInterpreter?: { id: string }
     ): Promise<undefined>;
     importIpynb(source: Uri): Promise<void>;
 }

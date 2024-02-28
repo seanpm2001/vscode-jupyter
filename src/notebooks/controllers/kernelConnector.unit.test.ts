@@ -1,10 +1,9 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-import * as sinon from 'sinon';
 import { assert } from 'chai';
 import { anything, deepEqual, instance, mock, verify, when } from 'ts-mockito';
-import { NotebookDocument, Uri } from 'vscode';
+import { NotebookDocument } from 'vscode';
 import { DisplayOptions } from '../../kernels/displayOptions';
 import { KernelDeadError } from '../../kernels/errors/kernelDeadError';
 import { IDataScienceErrorHandler } from '../../kernels/errors/types';
@@ -27,24 +26,10 @@ import { KernelConnector } from './kernelConnector';
 import { mockedVSCodeNamespaces, resetVSCodeMocks } from '../../test/vscode-mock';
 import { Disposable } from 'vscode';
 import { PythonExtension } from '@vscode/python-extension';
-import { setPythonApi } from '../../platform/interpreter/helpers';
-import { resolvableInstance } from '../../test/datascience/helpers';
+import { crateMockedPythonApi } from '../../kernels/helpers.unit.test';
 
 suite('Kernel Connector', () => {
-    const pythonConnection = PythonKernelConnectionMetadata.create({
-        id: 'python',
-        interpreter: {
-            id: 'id',
-            uri: Uri.file('python')
-        },
-        kernelSpec: {
-            argv: ['python'],
-            display_name: '',
-            executable: '',
-            language: 'python',
-            name: 'python'
-        }
-    });
+    let pythonConnection: PythonKernelConnectionMetadata;
     let serviceContainer: IServiceContainer;
     let kernelProvider: IKernelProvider;
     let trustedKernels: ITrustedKernelPaths;
@@ -54,24 +39,43 @@ suite('Kernel Connector', () => {
     let kernel: IKernel;
     let errorHandler: IDataScienceErrorHandler;
     let kernelSession: IKernelSession;
-    let pythonKernelSpec = PythonKernelConnectionMetadata.create({
-        id: 'python',
-        interpreter: {
-            id: 'id',
-            uri: Uri.file('python')
-        },
-        kernelSpec: {
-            argv: [],
-            display_name: 'python',
-            executable: '',
-            name: 'python'
-        }
-    });
+    let pythonKernelSpec: PythonKernelConnectionMetadata;
     let environments: PythonExtension['environments'];
 
     setup(() => {
         resetVSCodeMocks();
         disposables.push(new Disposable(() => resetVSCodeMocks()));
+        environments = crateMockedPythonApi(disposables).environments;
+        when(environments.known).thenReturn([]);
+
+        pythonConnection = PythonKernelConnectionMetadata.create({
+            id: 'python',
+            interpreter: {
+                id: 'id'
+                // uri: Uri.file('python')
+            },
+            kernelSpec: {
+                argv: ['python'],
+                display_name: '',
+                executable: '',
+                language: 'python',
+                name: 'python'
+            }
+        });
+
+        pythonKernelSpec = PythonKernelConnectionMetadata.create({
+            id: 'python',
+            interpreter: {
+                id: 'id'
+                // uri: Uri.file('python')
+            },
+            kernelSpec: {
+                argv: [],
+                display_name: 'python',
+                executable: '',
+                name: 'python'
+            }
+        });
 
         serviceContainer = mock<IServiceContainer>();
         kernelProvider = mock<IKernelProvider>();
@@ -93,15 +97,6 @@ suite('Kernel Connector', () => {
             instance(errorHandler)
         );
         when(kernelProvider.getOrCreate(anything(), anything())).thenReturn(instance(kernel));
-
-        const mockedApi = mock<PythonExtension>();
-        sinon.stub(PythonExtension, 'api').resolves(resolvableInstance(mockedApi));
-        disposables.push({ dispose: () => sinon.restore() });
-        environments = mock<PythonExtension['environments']>();
-        when(mockedApi.environments).thenReturn(instance(environments));
-        when(environments.known).thenReturn([]);
-        setPythonApi(instance(mockedApi));
-        disposables.push({ dispose: () => setPythonApi(undefined as any) });
 
         controller = createKernelController(pythonConnection.id);
     });

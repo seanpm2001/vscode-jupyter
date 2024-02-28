@@ -10,7 +10,7 @@ import * as path from '../../../platform/vscode-path/path';
 import { IInterpreterService } from '../contracts';
 import { IPythonExtensionChecker } from '../../api/types';
 import { getDisplayPath } from '../../common/platform/fs-paths';
-import { getPythonEnvDisplayName } from '../helpers';
+import { getEnvironmentExecutable, getPythonEnvDisplayName } from '../helpers';
 import { isPythonEnvInListOfHiddenEnvs } from './filterService';
 import { traceWarning } from '../../logging';
 
@@ -53,7 +53,7 @@ export class PythonEnvFilterCompletionProvider implements CompletionItemProvider
             })
             .map((env) => {
                 const label = getPythonEnvDisplayName(env);
-                const envPath = getDisplayPath(env.uri);
+                const envPath = getDisplayPath(getEnvironmentExecutable(env));
                 return {
                     label,
                     detail: envPath,

@@ -15,8 +15,11 @@ import { anything, instance, mock, when } from 'ts-mockito';
 import { KernelEnvironmentVariablesService } from './kernelEnvVarsService.node';
 import { IJupyterKernelSpec } from '../../types';
 import { Uri } from 'vscode';
-import { IConfigurationService, IWatchableJupyterSettings } from '../../../platform/common/types';
+import { IConfigurationService, IWatchableJupyterSettings, type IDisposable } from '../../../platform/common/types';
 import { JupyterSettings } from '../../../platform/common/configSettings';
+import { dispose } from '../../../platform/common/utils/lifecycle';
+import type { PythonExtension } from '@vscode/python-extension';
+import { crateMockedPythonApi } from '../../helpers.unit.test';
 
 use(chaiAsPromised);
 
@@ -30,7 +33,7 @@ suite('Kernel Environment Variables Service', () => {
     let configService: IConfigurationService;
     let settings: IWatchableJupyterSettings;
     const pathFile = Uri.joinPath(Uri.file('foobar'), 'bar');
-    const interpreter: PythonEnvironment = {
+    const interpreter: PythonEnvironment & { uri: Uri } = {
         uri: pathFile,
         id: pathFile.fsPath
     };
@@ -38,6 +41,7 @@ suite('Kernel Environment Variables Service', () => {
     let processEnv: NodeJS.ProcessEnv;
     const originalEnvVars = Object.assign({}, process.env);
     let processPath: string | undefined;
+    let disposables: IDisposable[] = [];
     setup(() => {
         kernelSpec = {
             name: 'kernel',
@@ -46,6 +50,7 @@ suite('Kernel Environment Variables Service', () => {
             interpreterPath: pathFile.fsPath,
             argv: []
         };
+        const environments = crateMockedPythonApi(disposables).environments;
         fs = mock<IFileSystemNode>();
         envActivation = mock<IEnvironmentActivationService>();
         customVariablesService = mock<ICustomEnvironmentVariablesProvider>();
@@ -72,8 +77,13 @@ suite('Kernel Environment Variables Service', () => {
             processEnv = process.env;
         }
         processPath = Object.keys(processEnv).find((k) => k.toLowerCase() == 'path');
+        disposables.push({
+            dispose: () => {
+                Object.assign(process.env, originalEnvVars);
+            }
+        });
     });
-    teardown(() => Object.assign(process.env, originalEnvVars));
+    teardown(() => (disposables = dispose(disposables)));
 
     test('Python Interpreter path trumps process', async () => {
         when(envActivation.getActivatedEnvironmentVariables(anything(), anything(), anything())).thenResolve({
@@ -169,7 +179,6 @@ suite('Kernel Environment Variables Service', () => {
 
     test('KernelSpec interpreterPath used if interpreter is undefined', async () => {
         when(interpreterService.getInterpreterDetails(anything(), anything())).thenResolve({
-            uri: Uri.joinPath(Uri.file('env'), 'foopath'),
             id: Uri.joinPath(Uri.file('env'), 'foopath').fsPath
         });
         when(envActivation.getActivatedEnvironmentVariables(anything(), anything(), anything())).thenResolve({
@@ -187,7 +196,6 @@ suite('Kernel Environment Variables Service', () => {
 
     test('No substitution of env variables in kernelSpec', async () => {
         when(interpreterService.getInterpreterDetails(anything(), anything())).thenResolve({
-            uri: Uri.joinPath(Uri.file('env'), 'foopath'),
             id: Uri.joinPath(Uri.file('env'), 'foopath').fsPath
         });
         when(envActivation.getActivatedEnvironmentVariables(anything(), anything(), anything())).thenResolve({
@@ -207,7 +215,6 @@ suite('Kernel Environment Variables Service', () => {
     });
     test('substitute env variables in kernelSpec', async () => {
         when(interpreterService.getInterpreterDetails(anything(), anything())).thenResolve({
-            uri: Uri.joinPath(Uri.file('env'), 'foopath'),
             id: Uri.joinPath(Uri.file('env'), 'foopath').fsPath
         });
         when(envActivation.getActivatedEnvironmentVariables(anything(), anything(), anything())).thenResolve({
@@ -232,7 +239,6 @@ suite('Kernel Environment Variables Service', () => {
 
     async function testPYTHONNOUSERSITE(_envType: EnvironmentType, shouldBeSet: boolean) {
         when(interpreterService.getInterpreterDetails(anything(), anything())).thenResolve({
-            uri: Uri.file('foopath'),
             id: Uri.file('foopath').fsPath
         });
         when(envActivation.getActivatedEnvironmentVariables(anything(), anything(), anything())).thenResolve({

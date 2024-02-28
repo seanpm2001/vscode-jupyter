@@ -3,7 +3,6 @@
 
 import type * as nbformat from '@jupyterlab/nbformat';
 import { ConfigurationTarget, Disposable, Event, ExtensionContext, OutputChannel, Uri, Range } from 'vscode';
-import { PythonEnvironment } from '../pythonEnvironments/info';
 import { CommandIds } from '../../commands';
 import { ISystemVariables } from './variables/types';
 
@@ -257,7 +256,7 @@ export interface IExperimentService {
     getExperimentValue<T extends boolean | number | string>(experimentName: Experiments): Promise<T | undefined>;
 }
 
-export type InterpreterUri = Resource | PythonEnvironment;
+export type InterpreterUri = Resource | { id: string };
 
 export const IDataScienceCommandListener = Symbol('IDataScienceCommandListener');
 export interface IDataScienceCommandListener {

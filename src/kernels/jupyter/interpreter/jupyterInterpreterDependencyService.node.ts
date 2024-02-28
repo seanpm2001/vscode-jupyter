@@ -21,6 +21,7 @@ import { IJupyterCommandFactory } from '../types.node';
 import { getComparisonKey } from '../../../platform/vscode-path/resources';
 import {
     getCachedEnvironment,
+    getEnvironmentExecutable,
     getEnvironmentType,
     getPythonEnvDisplayName
 } from '../../../platform/interpreter/helpers';
@@ -64,7 +65,8 @@ export function getMessageForLibrariesNotInstalled(products: Product[], interpre
         getPythonEnvDisplayName(interpreter) ||
         getPythonEnvDisplayName(interpreter) ||
         getCachedEnvironment(interpreter)?.environment?.folderUri?.fsPath ||
-        interpreter.uri.fsPath;
+        getEnvironmentExecutable(interpreter) ||
+        interpreter.id;
     // Even though kernelspec cannot be installed, display it so user knows what is missing.
     const names = products
         .map((product) => ProductNames.get(product))
@@ -244,7 +246,7 @@ export class JupyterInterpreterDependencyService {
         token?: CancellationToken
     ): Promise<Product[]> {
         // If we know that all modules were available at one point in time, then use that cache.
-        const key = getComparisonKey(interpreter.uri);
+        const key = interpreter.id;
         if (this.dependenciesInstalledInInterpreter.has(key)) {
             return [];
         }
@@ -262,7 +264,6 @@ export class JupyterInterpreterDependencyService {
                     .then((installed) => (installed ? noop() : notInstalled.push(Product.notebook)))
             ])
         );
-
         if (notInstalled.length > 0) {
             return notInstalled;
         }
@@ -327,7 +328,9 @@ export class JupyterInterpreterDependencyService {
             return JupyterInterpreterDependencyResponse.cancel;
         }
         const selectionFromError = await window.showErrorMessage(
-            DataScience.jupyterKernelSpecModuleNotFound(interpreter.uri.fsPath),
+            DataScience.jupyterKernelSpecModuleNotFound(
+                getEnvironmentExecutable(interpreter)?.fsPath || interpreter.id
+            ),
             { modal: true },
             DataScience.selectDifferentJupyterInterpreter
         );

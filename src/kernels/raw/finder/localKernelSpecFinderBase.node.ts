@@ -26,7 +26,7 @@ import { getComparisonKey } from '../../../platform/vscode-path/resources';
 import { PromiseMonitor } from '../../../platform/common/utils/promises';
 import { dispose } from '../../../platform/common/utils/lifecycle';
 import { JupyterPaths } from './jupyterPaths.node';
-import { isCondaEnvironmentWithoutPython } from '../../../platform/interpreter/helpers';
+import { getEnvironmentExecutable, isCondaEnvironmentWithoutPython } from '../../../platform/interpreter/helpers';
 
 export type KernelSpecFileWithContainingInterpreter = { interpreter?: PythonEnvironment; kernelSpecFile: Uri };
 export const isDefaultPythonKernelSpecSpecName = /python\s\d*.?\d*$/;
@@ -74,7 +74,7 @@ export class LocalKernelSpecFinder implements IDisposable {
     public async loadKernelSpec(
         specPath: Uri,
         cancelToken: CancellationToken,
-        interpreter?: PythonEnvironment
+        interpreter?: { id: string }
     ): Promise<IJupyterKernelSpec | undefined> {
         // This is a backup folder for old kernels created by us.
         if (specPath.fsPath.includes(oldKernelsSpecFolderName)) {
@@ -138,7 +138,7 @@ export class LocalKernelSpecFinder implements IDisposable {
     private async loadKernelSpecImpl(
         specPath: Uri,
         cancelToken: CancellationToken,
-        interpreter?: PythonEnvironment
+        interpreter?: { id: string }
     ): Promise<IJupyterKernelSpec | undefined> {
         return loadKernelSpec(specPath, this.fs, cancelToken, interpreter);
     }
@@ -264,6 +264,7 @@ export abstract class LocalKernelSpecFinderBase<
             if (cache && Array.isArray(cache.kernels) && cache.extensionVersion === this.env.extensionVersion) {
                 kernels = cache.kernels.map((item) => BaseKernelConnectionMetadata.fromJSON(item)) as T[];
             }
+            console.error(`cache to verify`, kernels);
 
             // Validate
             const validValues: T[] = [];
@@ -274,9 +275,10 @@ export abstract class LocalKernelSpecFinderBase<
                     }
                 })
             );
+            console.error(`Verified`, validValues);
             return validValues;
         })();
-
+        console.log('promiseMonitor.push(promise)');
         this.promiseMonitor.push(promise);
         return promise;
     }
@@ -292,18 +294,23 @@ export abstract class LocalKernelSpecFinderBase<
     }
     protected async isValidCachedKernel(kernel: LocalKernelConnectionMetadata): Promise<boolean> {
         switch (kernel.kind) {
-            case 'startUsingPythonInterpreter':
+            case 'startUsingPythonInterpreter': {
+                const envUri = getEnvironmentExecutable(kernel.interpreter);
                 // Interpreters have to still exist
-                return this.fs.exists(kernel.interpreter.uri);
+                console.error(`envUri`, kernel.interpreter, envUri, envUri ? await this.fs.exists(envUri) : false);
+                return envUri ? this.fs.exists(envUri) : false;
+            }
 
-            case 'startUsingLocalKernelSpec':
+            case 'startUsingLocalKernelSpec': {
+                const envUri = getEnvironmentExecutable(kernel.interpreter);
                 // Spec files have to still exist and interpreters have to exist
                 const promiseSpec = kernel.kernelSpec.specFile
                     ? this.fs.exists(Uri.file(kernel.kernelSpec.specFile))
                     : Promise.resolve(true);
                 return promiseSpec.then((r) => {
-                    return r && kernel.interpreter ? this.fs.exists(kernel.interpreter.uri) : Promise.resolve(true);
+                    return r && envUri ? this.fs.exists(envUri) : Promise.resolve(true);
                 });
+            }
         }
     }
 }
@@ -315,18 +322,17 @@ export async function loadKernelSpec(
     specPath: Uri,
     fs: IFileSystemNode,
     cancelToken: CancellationToken,
-    interpreter?: PythonEnvironment
+    interpreter?: { id: string }
 ): Promise<IJupyterKernelSpec | undefined> {
     // This is a backup folder for old kernels created by us.
     if (specPath.fsPath.includes(oldKernelsSpecFolderName)) {
         return;
     }
     let kernelJson: ReadWrite<IJupyterKernelSpec>;
+    const envUri = getEnvironmentExecutable(interpreter);
     try {
         traceVerbose(
-            `Loading kernelspec from ${getDisplayPath(specPath)} ${
-                interpreter?.uri ? `for ${getDisplayPath(interpreter.uri)}` : ''
-            }`
+            `Loading kernelspec from ${getDisplayPath(specPath)} ${envUri ? `for ${getDisplayPath(envUri)}` : ''}`
         );
         kernelJson = JSON.parse(await fs.readFile(specPath));
     } catch (ex) {
@@ -378,7 +384,7 @@ export async function loadKernelSpec(
         kernelJson as any,
         specPath.fsPath,
         // Interpreter information may be saved in the metadata (if this is a kernel spec created/registered by us).
-        interpreter?.uri.fsPath || kernelJson?.metadata?.interpreter?.path,
+        envUri?.fsPath || kernelJson?.metadata?.interpreter?.path,
         getKernelRegistrationInfo(kernelJson)
     );
 
@@ -386,7 +392,7 @@ export async function loadKernelSpec(
     kernelSpec.name = kernelJson?.name || path.basename(path.dirname(specPath.fsPath));
 
     // Possible user deleted the underlying interpreter.
-    const interpreterPath = interpreter?.uri.fsPath || kernelJson?.metadata?.interpreter?.path;
+    const interpreterPath = envUri?.fsPath || kernelJson?.metadata?.interpreter?.path;
     const isEmptyCondaEnv = isCondaEnvironmentWithoutPython(interpreter);
     if (interpreterPath && !isEmptyCondaEnv && !(await fs.exists(Uri.file(interpreterPath)))) {
         return;

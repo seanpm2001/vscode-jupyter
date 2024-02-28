@@ -24,6 +24,7 @@ import { IControllerRegistration } from '../../../notebooks/controllers/types';
 import type { Session } from '@jupyterlab/services';
 import { wrapKernelSession } from './kernelWrapper';
 import { IExportedKernelServiceFactory } from './types';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 @injectable()
 export class JupyterKernelServiceFactory implements IExportedKernelServiceFactory {
@@ -118,9 +119,9 @@ class JupyterKernelService implements IExportedKernelService {
         this.kernelProvider.onDidDisposeKernel(
             (e) => {
                 traceInfoIfCI(
-                    `Kernel ${
-                        e.kernelConnectionMetadata.id
-                    }, ${e.kernelConnectionMetadata.interpreter?.uri.toString()} disposed`
+                    `Kernel ${e.kernelConnectionMetadata.id}, ${getEnvironmentExecutable(
+                        e.kernelConnectionMetadata.interpreter
+                    )?.toString()} disposed`
                 );
                 this._onDidChangeKernels.fire();
             },
@@ -130,9 +131,9 @@ class JupyterKernelService implements IExportedKernelService {
         this.kernelProvider.onDidStartKernel(
             (e) => {
                 traceInfoIfCI(
-                    `Kernel ${
-                        e.kernelConnectionMetadata.id
-                    }, ${e.kernelConnectionMetadata.interpreter?.uri.toString()} started`
+                    `Kernel ${e.kernelConnectionMetadata.id}, ${getEnvironmentExecutable(
+                        e.kernelConnectionMetadata.interpreter
+                    )?.toString()} started`
                 );
                 this._onDidChangeKernels.fire();
             },
@@ -142,9 +143,9 @@ class JupyterKernelService implements IExportedKernelService {
         this.thirdPartyKernelProvider.onDidDisposeKernel(
             (e) => {
                 traceInfoIfCI(
-                    `Third party Kernel ${
-                        e.kernelConnectionMetadata.id
-                    }, ${e.kernelConnectionMetadata.interpreter?.uri.toString()} disposed`
+                    `Third party Kernel ${e.kernelConnectionMetadata.id}, ${getEnvironmentExecutable(
+                        e.kernelConnectionMetadata.interpreter
+                    )?.toString()} disposed`
                 );
                 this._onDidChangeKernels.fire();
             },
@@ -154,9 +155,9 @@ class JupyterKernelService implements IExportedKernelService {
         this.thirdPartyKernelProvider.onDidStartKernel(
             (e) => {
                 traceInfoIfCI(
-                    `Third party Kernel ${
-                        e.kernelConnectionMetadata.id
-                    }, ${e.kernelConnectionMetadata.interpreter?.uri.toString()} started`
+                    `Third party Kernel ${e.kernelConnectionMetadata.id}, ${getEnvironmentExecutable(
+                        e.kernelConnectionMetadata.interpreter
+                    )?.toString()} started`
                 );
                 this._onDidChangeKernels.fire();
             },

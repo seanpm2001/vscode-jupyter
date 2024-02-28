@@ -20,7 +20,7 @@ import { traceVerbose, traceWarning } from '../../platform/logging';
 import { PythonEnvironment } from '../../platform/pythonEnvironments/info';
 import { sendTelemetryEvent, Telemetry } from '../../telemetry';
 import { IControllerRegistration } from './types';
-import { getEnvironmentType } from '../../platform/interpreter/helpers';
+import { getEnvironmentExecutable, getEnvironmentType } from '../../platform/interpreter/helpers';
 
 type CreateEnvironmentResult = {
     path: string | undefined;
@@ -116,9 +116,9 @@ export class PythonEnvKernelConnectionCreator {
         if (result !== KernelInterpreterDependencyResponse.ok) {
             dependenciesInstalled = false;
             traceWarning(
-                `Dependencies not installed for new Python Env ${getDisplayPath(env.uri)} for notebook ${getDisplayPath(
-                    this.notebook.uri
-                )}`
+                `Dependencies not installed for new Python Env ${getDisplayPath(
+                    getEnvironmentExecutable(env)
+                )} for notebook ${getDisplayPath(this.notebook.uri)}`
             );
         }
 
@@ -177,7 +177,9 @@ export class PythonEnvKernelConnectionCreator {
                 return;
             }
             if (!kernel) {
-                traceWarning(`New Python Environment ${getDisplayPath(env.uri)} not found as a kernel`);
+                traceWarning(
+                    `New Python Environment ${getDisplayPath(getEnvironmentExecutable(env))} not found as a kernel`
+                );
             }
             return kernel;
         });

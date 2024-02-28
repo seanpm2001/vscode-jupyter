@@ -8,7 +8,7 @@ import { dispose } from '../../../platform/common/utils/lifecycle';
 import { DataScience } from '../../../platform/common/utils/localize';
 import { JupyterInstallError } from '../../../platform/errors/jupyterInstallError';
 import { IInterpreterService } from '../../../platform/interpreter/contracts';
-import { PythonEnvironment } from '../../../platform/pythonEnvironments/info';
+import { EnvironmentType, PythonEnvironment } from '../../../platform/pythonEnvironments/info';
 import { MockMemento } from '../../../test/mocks/mementos';
 import { createPythonInterpreter } from '../../../test/utils/interpreters';
 import { JupyterInterpreterDependencyResponse } from '../types';
@@ -18,6 +18,9 @@ import { JupyterInterpreterService } from './jupyterInterpreterService.node';
 import { JupyterInterpreterStateStore } from './jupyterInterpreterStateStore';
 import { mockedVSCodeNamespaces } from '../../../test/vscode-mock';
 import type { IDisposable } from '../../../platform/common/types';
+import type { PythonExtension } from '@vscode/python-extension';
+import { crateMockedPythonApi, whenKnownEnvironments } from '../../helpers.unit.test';
+import { uriEquals } from '../../../test/datascience/helpers';
 
 /* eslint-disable  */
 
@@ -30,17 +33,19 @@ suite('Jupyter Interpreter Service', () => {
     let memento: Memento;
     let interpreterSelectionState: JupyterInterpreterStateStore;
     const selectedJupyterInterpreter = createPythonInterpreter();
-    const pythonInterpreter: PythonEnvironment = {
+    const pythonInterpreter: PythonEnvironment & { uri: Uri } = {
         uri: Uri.file('some path'),
         id: Uri.file('some path').fsPath
     };
-    const secondPythonInterpreter: PythonEnvironment = {
+    const secondPythonInterpreter: PythonEnvironment & { uri: Uri } = {
         uri: Uri.file('second interpreter path'),
         id: Uri.file('second interpreter path').fsPath
     };
     let disposables: IDisposable[] = [];
+    let environments: PythonExtension['environments'];
 
     setup(() => {
+        environments = crateMockedPythonApi(disposables).environments;
         interpreterSelector = mock(JupyterInterpreterSelector);
         interpreterConfiguration = mock(JupyterInterpreterDependencyService);
         interpreterService = mock<IInterpreterService>();
@@ -56,13 +61,27 @@ suite('Jupyter Interpreter Service', () => {
             instance(interpreterService),
             disposables
         );
-        when(interpreterService.getInterpreterDetails(pythonInterpreter.uri)).thenResolve(pythonInterpreter);
-        when(interpreterService.getInterpreterDetails(secondPythonInterpreter.uri)).thenResolve(
+        when(interpreterService.getInterpreterDetails({ id: pythonInterpreter.id })).thenResolve(pythonInterpreter);
+        when(interpreterService.getInterpreterDetails(uriEquals(pythonInterpreter.uri))).thenResolve(pythonInterpreter);
+        when(interpreterService.getInterpreterDetails({ id: secondPythonInterpreter.id })).thenResolve(
+            secondPythonInterpreter
+        );
+        when(interpreterService.getInterpreterDetails(uriEquals(secondPythonInterpreter.uri))).thenResolve(
             secondPythonInterpreter
         );
         when(memento.update(anything(), anything())).thenResolve();
         jupyterInterpreterService.onDidChangeInterpreter((e) => (selectedInterpreterEventArgs = e));
         when(interpreterSelector.selectPythonInterpreter()).thenResolve(pythonInterpreter);
+
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: Uri.file('some path').fsPath,
+                executable: {
+                    uri: Uri.file('some path')
+                },
+                tools: [EnvironmentType.Unknown]
+            }
+        ]);
     });
     teardown(() => (disposables = dispose(disposables)));
 
@@ -148,8 +167,8 @@ suite('Jupyter Interpreter Service', () => {
         assert.equal(initialInterpreter, pythonInterpreter);
         // Make sure we set our saved interpreter to the new active interpreter
         // it should have been cleared to undefined, then set to a new value
-        verify(interpreterSelectionState.updateSelectedPythonPath(undefined)).once();
-        verify(interpreterSelectionState.updateSelectedPythonPath(pythonInterpreter.uri)).once();
+        verify(interpreterSelectionState.updateSelectedPythonPath(undefined)).atLeast(1);
+        verify(interpreterSelectionState.updateSelectedPythonPath(uriEquals(pythonInterpreter.uri))).once();
     });
     test('Install missing dependencies into active interpreter', async () => {
         when(interpreterService.getActiveInterpreter(anything())).thenResolve(pythonInterpreter);

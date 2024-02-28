@@ -28,8 +28,8 @@ suite('DataViewerDependencyService (PythonEnvironment, Node)', () => {
     setup(async () => {
         resetVSCodeMocks();
         interpreter = {
-            id: Uri.file(path.join('users', 'python', 'bin', 'python.exe')).fsPath,
-            uri: Uri.file(path.join('users', 'python', 'bin', 'python.exe'))
+            id: Uri.file(path.join('users', 'python', 'bin', 'python.exe')).fsPath
+            // uri: Uri.file(path.join('users', 'python', 'bin', 'python.exe'))
         };
         pythonExecService = mock<IPythonExecutionService>();
         installer = mock(ProductInstaller);

@@ -15,7 +15,7 @@ import { getDisplayPath } from '../common/platform/fs-paths.node';
 import { IInterpreterPackages } from './types';
 import { IPythonExecutionFactory } from './types.node';
 import { getWorkspaceFolderIdentifier } from '../common/application/workspace.base';
-import { isCondaEnvironmentWithoutPython } from './helpers';
+import { getEnvironmentExecutable, isCondaEnvironmentWithoutPython } from './helpers';
 
 const interestedPackages = new Set(
     [
@@ -68,7 +68,7 @@ export class InterpreterPackages implements IInterpreterPackages {
         if (!this.pythonExtensionChecker.isPythonExtensionInstalled) {
             return Promise.resolve(new Map<string, string>());
         }
-        const key = getComparisonKey(interpreter.uri);
+        const key = interpreter.id;
         let deferred = this.interpreterInformation.get(key);
         if (!deferred) {
             deferred = createDeferred<Map<string, string>>();
@@ -130,7 +130,7 @@ export class InterpreterPackages implements IInterpreterPackages {
             return new Set(modules.concat(modules.map((item) => item.toLowerCase())));
         } else {
             traceError(
-                `Failed to get list of installed packages for ${getDisplayPath(interpreter.uri)}`,
+                `Failed to get list of installed packages for ${getDisplayPath(getEnvironmentExecutable(interpreter))}`,
                 modulesOutput.stderr
             );
             return new Set<string>();
@@ -142,7 +142,7 @@ export class InterpreterPackages implements IInterpreterPackages {
             this.pendingInterpreterBeforeActivation.add(interpreterUri);
             return;
         }
-        let interpreter: PythonEnvironment;
+        let interpreter: { id: string };
         if (isResource(interpreterUri)) {
             // Get details of active interpreter for the Uri provided.
             const activeInterpreter = await this.interpreterService.getActiveInterpreter(interpreterUri);
@@ -155,13 +155,13 @@ export class InterpreterPackages implements IInterpreterPackages {
         }
         this.trackInterpreterPackages(interpreter, ignoreCache).catch(noop);
     }
-    private async trackInterpreterPackages(interpreter: PythonEnvironment, ignoreCache?: boolean) {
-        const key = getComparisonKey(interpreter.uri);
+    private async trackInterpreterPackages(interpreter: { id: string }, ignoreCache?: boolean) {
+        const key = interpreter.id;
         if (this.pendingInterpreterInformation.has(key) && !ignoreCache) {
             return;
         }
 
-        const promise = this.getPackageInformation({ interpreter });
+        const promise = this.getPackageInformation(interpreter);
         promise
             .finally(() => {
                 // If this promise was resolved, then remove it from the pending list.
@@ -178,7 +178,7 @@ export class InterpreterPackages implements IInterpreterPackages {
         this.pendingInterpreterInformation.set(key, promise);
     }
 
-    private async getPackageInformation({ interpreter }: { interpreter: PythonEnvironment }) {
+    private async getPackageInformation(interpreter: { id: string }) {
         if (isCondaEnvironmentWithoutPython(interpreter)) {
             return;
         }
@@ -213,7 +213,7 @@ export class InterpreterPackages implements IInterpreterPackages {
                     packageAndVersions.set(await getTelemetrySafeHashedString(packageName), version || '');
                 })
         );
-        const key = getComparisonKey(interpreter.uri);
+        const key = interpreter.id;
         let deferred = this.interpreterInformation.get(key);
         if (!deferred) {
             deferred = createDeferred<Map<string, string>>();

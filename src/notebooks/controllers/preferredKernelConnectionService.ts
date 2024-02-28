@@ -25,7 +25,12 @@ import { isParentPath } from '../../platform/common/platform/fileUtils';
 import { EnvironmentType } from '../../platform/pythonEnvironments/info';
 import { JupyterConnection } from '../../kernels/jupyter/connection/jupyterConnection';
 import { getRemoteSessionOptions } from '../../kernels/jupyter/session/jupyterSession';
-import { getCachedEnvironment, getEnvironmentType, getPythonEnvironmentName } from '../../platform/interpreter/helpers';
+import {
+    getCachedEnvironment,
+    getEnvironmentExecutable,
+    getEnvironmentType,
+    getPythonEnvironmentName
+} from '../../platform/interpreter/helpers';
 
 /**
  * Attempt to clean up https://github.com/microsoft/vscode-jupyter/issues/11914
@@ -306,7 +311,10 @@ function findLocalPythonEnv(folder: Uri, kernelFinder: IContributedKernelFinder<
     const localEnvs = pythonEnvs.filter((p) =>
         isParentPath(
             // eslint-disable-next-line local-rules/dont-use-fspath
-            getCachedEnvironment(p.interpreter)?.environment?.folderUri?.fsPath || p.interpreter.uri.fsPath,
+            getCachedEnvironment(p.interpreter)?.environment?.folderUri?.fsPath ||
+                // eslint-disable-next-line local-rules/dont-use-fspath
+                getEnvironmentExecutable(p.interpreter)?.fsPath ||
+                '',
             // eslint-disable-next-line local-rules/dont-use-fspath
             folder.fsPath
         )

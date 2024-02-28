@@ -86,10 +86,10 @@ suite('Pip installer', async () => {
     });
 
     test('If InterpreterUri is Python interpreter, Python execution factory is called with the correct arguments', async () => {
-        const interpreter = {
-            id: '1',
-            path: 'pythonPath'
-        } as unknown as PythonEnvironment;
+        const interpreter: PythonEnvironment = {
+            id: '1'
+            // path: 'pythonPath'
+        };
         when(environments.known).thenReturn([
             {
                 id: '1',
@@ -104,7 +104,7 @@ suite('Pip installer', async () => {
 
     test('Method isSupported() returns true if pip module is installed', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
+            // uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         when(environments.known).thenReturn([
@@ -123,7 +123,7 @@ suite('Pip installer', async () => {
 
     test('Method isSupported() returns false if pip module is not installed', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
+            // uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         when(environments.known).thenReturn([
@@ -142,7 +142,7 @@ suite('Pip installer', async () => {
 
     test('Method isSupported() returns false if checking if pip module is installed fails with error', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
+            // uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
         when(environments.known).thenReturn([
@@ -165,7 +165,7 @@ suite('Pip installer', async () => {
         .forEach((envType) => {
             test(`Test install args for ${envType}`, async () => {
                 const interpreter: PythonEnvironment = {
-                    uri: Uri.file('foobar'),
+                    // uri: Uri.file('foobar'),
                     id: Uri.file('foobar').fsPath
                 };
                 when(environments.known).thenReturn([

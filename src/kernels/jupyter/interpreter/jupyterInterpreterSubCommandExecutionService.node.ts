@@ -31,6 +31,7 @@ import { IJupyterSubCommandExecutionService } from '../types.node';
 import { getDisplayPath } from '../../../platform/common/platform/fs-paths.node';
 import { JUPYTER_OUTPUT_CHANNEL } from '../../../platform/common/constants';
 import { IPythonExecutionFactory } from '../../../platform/interpreter/types.node';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 /**
  * Responsible for execution of jupyter sub commands using a single/global interpreter set aside for launching jupyter server.
@@ -90,7 +91,9 @@ export class JupyterInterpreterSubCommandExecutionService
         }
 
         if (productsNotInstalled.length === 1 && productsNotInstalled[0] === Product.kernelspec) {
-            return DataScience.jupyterKernelSpecModuleNotFound(interpreter.uri.fsPath);
+            return DataScience.jupyterKernelSpecModuleNotFound(
+                getEnvironmentExecutable(interpreter)?.fsPath || interpreter.id
+            );
         }
 
         return getMessageForLibrariesNotInstalled(productsNotInstalled, interpreter);
@@ -104,7 +107,10 @@ export class JupyterInterpreterSubCommandExecutionService
     ): Promise<ObservableExecutionResult<string>> {
         const interpreter = await this.getSelectedInterpreterAndThrowIfNotAvailable(options.token);
         this.jupyterOutputChannel.appendLine(
-            DataScience.startingJupyterLogMessage(getDisplayPath(interpreter.uri), notebookArgs.join(' '))
+            DataScience.startingJupyterLogMessage(
+                getDisplayPath(getEnvironmentExecutable(interpreter)),
+                notebookArgs.join(' ')
+            )
         );
         const executionService = await this.pythonExecutionFactory.createActivatedEnvironment({
             interpreter: interpreter

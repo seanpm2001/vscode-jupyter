@@ -13,11 +13,11 @@ import {
 } from '../../../platform/common/variables/types';
 import { IEnvironmentActivationService } from '../../../platform/interpreter/activation/types';
 import { IInterpreterService } from '../../../platform/interpreter/contracts';
-import { PythonEnvironment } from '../../../platform/pythonEnvironments/info';
 import { IJupyterKernelSpec } from '../../types';
 import { CancellationToken, Uri } from 'vscode';
 import { PYTHON_LANGUAGE } from '../../../platform/common/constants';
 import { trackKernelResourceInformation } from '../../telemetry/helper';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 /**
  * Class used to fetch environment variables for a kernel.
@@ -47,7 +47,7 @@ export class KernelEnvironmentVariablesService {
      */
     public async getEnvironmentVariables(
         resource: Resource,
-        interpreter: PythonEnvironment | undefined,
+        interpreter: { id: string } | undefined,
         kernelSpec: IJupyterKernelSpec,
         token?: CancellationToken
     ) {
@@ -121,7 +121,9 @@ export class KernelEnvironmentVariablesService {
             // For more details see here https://github.com/microsoft/vscode-jupyter/issues/8553#issuecomment-997144591
             // https://docs.python.org/3/library/site.html#site.ENABLE_USER_SITE
             if (this.configService.getSettings(undefined).excludeUserSitePackages) {
-                traceInfo(`Adding env Variable PYTHONNOUSERSITE to ${getDisplayPath(interpreter?.uri)}`);
+                traceInfo(
+                    `Adding env Variable PYTHONNOUSERSITE to ${getDisplayPath(getEnvironmentExecutable(interpreter))}`
+                );
                 mergedVars.PYTHONNOUSERSITE = 'True';
             }
             if (isPythonKernel) {

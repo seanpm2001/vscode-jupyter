@@ -29,7 +29,7 @@ suite('Jupyter Server Provider', () => {
     let jupyterServerHelper: IJupyterServerHelper;
     let interpreterService: IInterpreterService;
     const workingPython: PythonEnvironment = {
-        uri: Uri.file('/foo/bar/python.exe'),
+        // uri: Uri.file('/foo/bar/python.exe'),
         id: Uri.file('/foo/bar/python.exe').fsPath
     };
     let disposables: Disposable[] = [];

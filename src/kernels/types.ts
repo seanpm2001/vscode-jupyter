@@ -14,7 +14,6 @@ import type {
     Uri
 } from 'vscode';
 import type * as nbformat from '@jupyterlab/nbformat';
-import { PythonEnvironment } from '../platform/pythonEnvironments/info';
 import * as path from '../platform/vscode-path/path';
 import { IAsyncDisposable, IDisplayOptions, IDisposable, ReadWrite, Resource } from '../platform/common/types';
 import { IJupyterKernel, JupyterServerProviderHandle } from './jupyter/types';
@@ -33,7 +32,7 @@ import {
 } from '../platform/common/constants';
 import { sendTelemetryEvent } from '../telemetry';
 import { generateIdFromRemoteProvider } from './jupyter/jupyterUtils';
-import { getEnvironmentType } from '../platform/interpreter/helpers';
+import { getEnvironmentExecutable, getEnvironmentType } from '../platform/interpreter/helpers';
 
 export type WebSocketData = string | Buffer | ArrayBuffer | Buffer[];
 
@@ -41,11 +40,12 @@ export type LiveKernelModel = IJupyterKernel &
     Partial<IJupyterKernelSpec> & { model: Session.IModel | undefined; notebook?: { path?: string } };
 
 async function getConnectionIdHash(connection: KernelConnectionMetadata) {
-    if (!isWeb() && connection.interpreter?.uri) {
+    const envUri = getEnvironmentExecutable(connection.interpreter);
+    if (!isWeb() && envUri) {
         // eslint-disable-next-line local-rules/dont-use-fspath
-        const interpreterPath = connection.interpreter.uri.fsPath;
+        const interpreterPath = envUri.fsPath;
         // eslint-disable-next-line local-rules/dont-use-fspath
-        const normalizedPath = getNormalizedInterpreterPath(connection.interpreter.uri).fsPath;
+        const normalizedPath = getNormalizedInterpreterPath(envUri).fsPath;
         // Connection ids can contain Python paths in them.
         const normalizedId = connection.id.replace(interpreterPath, normalizedPath);
         return getTelemetrySafeHashedString(normalizedId);
@@ -97,14 +97,14 @@ export class LiveRemoteKernelConnectionMetadata {
     /**
      * Python interpreter will be used for intellisense & the like.
      */
-    public readonly interpreter?: PythonEnvironment;
+    public readonly interpreter?: Readonly<{ id: string }>;
 
     private constructor(options: {
         kernelModel: LiveKernelModel;
         /**
          * Python interpreter will be used for intellisense & the like.
          */
-        interpreter?: PythonEnvironment;
+        interpreter?: { id: string };
         baseUrl: string;
         id: string;
         serverProviderHandle: JupyterServerProviderHandle;
@@ -121,7 +121,7 @@ export class LiveRemoteKernelConnectionMetadata {
         /**
          * Python interpreter will be used for intellisense & the like.
          */
-        interpreter?: PythonEnvironment;
+        interpreter?: { id: string };
         baseUrl: string;
         id: string;
         serverProviderHandle: JupyterServerProviderHandle;
@@ -158,7 +158,7 @@ export class LocalKernelSpecConnectionMetadata {
     public readonly kind = 'startUsingLocalKernelSpec';
     public readonly id: string;
     public readonly kernelSpec: Readonly<IJupyterKernelSpec>;
-    public readonly interpreter?: Readonly<PythonEnvironment>;
+    public readonly interpreter?: Readonly<{ id: string }>;
     private constructor(options: {
         kernelSpec: IJupyterKernelSpec;
         /**
@@ -166,7 +166,7 @@ export class LocalKernelSpecConnectionMetadata {
          * If possible to start a kernel without this Python interpreter, then this Python interpreter will be used for intellisense & the like.
          * This interpreter could also be the interpreter associated with the kernel spec that we are supposed to start.
          */
-        interpreter?: PythonEnvironment;
+        interpreter?: { id: string };
         id: string;
     }) {
         this.kernelSpec = options.kernelSpec;
@@ -181,7 +181,7 @@ export class LocalKernelSpecConnectionMetadata {
          * If possible to start a kernel without this Python interpreter, then this Python interpreter will be used for intellisense & the like.
          * This interpreter could also be the interpreter associated with the kernel spec that we are supposed to start.
          */
-        interpreter?: PythonEnvironment;
+        interpreter?: { id: string };
         id: string;
     }) {
         return new LocalKernelSpecConnectionMetadata(options);
@@ -213,10 +213,10 @@ export class RemoteKernelSpecConnectionMetadata {
     public readonly id: string;
     public readonly kernelSpec: IJupyterKernelSpec;
     public readonly baseUrl: string;
-    public readonly interpreter?: PythonEnvironment; // Can be set if URL is localhost
+    public readonly interpreter?: { id: string }; // Can be set if URL is localhost
     public readonly serverProviderHandle: JupyterServerProviderHandle;
     private constructor(options: {
-        interpreter?: PythonEnvironment; // Can be set if URL is localhost
+        interpreter?: { id: string }; // Can be set if URL is localhost
         kernelSpec: IJupyterKernelSpec;
         baseUrl: string;
         id: string;
@@ -230,7 +230,7 @@ export class RemoteKernelSpecConnectionMetadata {
         sendKernelTelemetry(this);
     }
     public static create(options: {
-        interpreter?: PythonEnvironment; // Can be set if URL is localhost
+        interpreter?: { id: string }; // Can be set if URL is localhost
         kernelSpec: IJupyterKernelSpec;
         baseUrl: string;
         id: string;
@@ -264,15 +264,15 @@ export class RemoteKernelSpecConnectionMetadata {
 export class PythonKernelConnectionMetadata {
     public readonly kind = 'startUsingPythonInterpreter';
     public readonly kernelSpec: IJupyterKernelSpec;
-    public readonly interpreter: PythonEnvironment;
+    public readonly interpreter: { id: string };
     public readonly id: string;
-    private constructor(options: { kernelSpec: IJupyterKernelSpec; interpreter: PythonEnvironment; id: string }) {
+    private constructor(options: { kernelSpec: IJupyterKernelSpec; interpreter: { id: string }; id: string }) {
         this.kernelSpec = options.kernelSpec;
         this.interpreter = options.interpreter;
         this.id = options.id;
         sendKernelTelemetry(this);
     }
-    public static create(options: { kernelSpec: IJupyterKernelSpec; interpreter: PythonEnvironment; id: string }) {
+    public static create(options: { kernelSpec: IJupyterKernelSpec; interpreter: { id: string }; id: string }) {
         return new PythonKernelConnectionMetadata(options);
     }
     public getHashId() {
@@ -286,7 +286,7 @@ export class PythonKernelConnectionMetadata {
             kind: this.kind
         };
     }
-    public updateInterpreter(interpreter: PythonEnvironment) {
+    public updateInterpreter(interpreter: { id: string }) {
         Object.assign(this.interpreter, interpreter);
     }
     public static fromJSON(options: Record<string, unknown> | PythonKernelConnectionMetadata) {
@@ -907,7 +907,7 @@ function sendKernelTelemetry(kernel: KernelConnectionMetadata) {
     if (kernelSpec && Array.isArray(kernelSpec.argv) && kernelSpec.argv.length > 0) {
         argv0 = kernelSpec.argv[0];
         // eslint-disable-next-line local-rules/dont-use-fspath
-        isArgv0SameAsInterpreter = argv0.toLowerCase() === interpreter?.uri?.fsPath?.toLowerCase();
+        isArgv0SameAsInterpreter = argv0.toLowerCase() === getEnvironmentExecutable(interpreter)?.fsPath?.toLowerCase();
         if (path.basename(argv0) !== argv0) {
             argv0 = `<P>${path.basename(argv0)}`;
         }

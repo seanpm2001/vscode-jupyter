@@ -3,17 +3,15 @@
 
 import { Uri } from 'vscode';
 import { ExecutionResult, ObservableExecutionResult, SpawnOptions } from '../common/process/types.node';
-import { PythonEnvironment } from '../pythonEnvironments/info';
-import { Environment } from '@vscode/python-extension';
 
 export type ExecutionFactoryCreationOptions = {
     resource?: Uri;
-    interpreter: PythonEnvironment | Environment;
+    interpreter: { id: string };
 };
 
 export type ExecutionFactoryCreateWithEnvironmentOptions = {
     resource?: Uri;
-    interpreter: PythonEnvironment | Environment;
+    interpreter: { id: string };
     allowEnvironmentFetchExceptions?: boolean;
 };
 export const IPythonExecutionFactory = Symbol('IPythonExecutionFactory');

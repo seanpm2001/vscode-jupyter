@@ -4,7 +4,7 @@
 import { assert } from 'chai';
 import * as sinon from 'sinon';
 import { anything, capture, deepEqual, instance, mock, verify, when } from 'ts-mockito';
-import { CancellationTokenSource, Disposable, EventEmitter, NotebookDocument, Uri } from 'vscode';
+import { CancellationTokenSource, Disposable, EventEmitter, NotebookDocument } from 'vscode';
 import { ContributedKernelFinderKind, IContributedKernelFinder } from '../../kernels/internalTypes';
 import {
     IJupyterKernelSpec,
@@ -53,8 +53,8 @@ suite('Python Environment Kernel Connection Creator', () => {
             language: 'python'
         },
         interpreter: {
-            id: 'venv',
-            uri: Uri.file('venv')
+            id: 'venv'
+            // uri: Uri.file('venv')
         }
     });
     const newCondaPythonKernel = PythonKernelConnectionMetadata.create({
@@ -67,8 +67,8 @@ suite('Python Environment Kernel Connection Creator', () => {
             language: 'python'
         },
         interpreter: {
-            id: 'conda',
-            uri: Uri.file('.conda/bin/python')
+            id: 'conda'
+            // uri: Uri.file('.conda/bin/python')
         }
     });
     let environments: PythonExtension['environments'];
@@ -157,7 +157,7 @@ suite('Python Environment Kernel Connection Creator', () => {
         when(localPythonEnvFinder.kernels).thenReturn([venvPythonKernel, newCondaPythonKernel]);
         when(localPythonEnvFinder.status).thenReturn('idle');
         when(interpreterService.getInterpreterDetails(deepEqual({ path: newCondaEnvPath }))).thenResolve(
-            newCondaPythonKernel.interpreter
+            newCondaPythonKernel.interpreter as any
         );
         when(kernelDependencyService.installMissingDependencies(anything())).thenResolve(
             KernelInterpreterDependencyResponse.ok

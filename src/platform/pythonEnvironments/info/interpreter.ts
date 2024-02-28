@@ -3,13 +3,14 @@
 
 import { Uri } from 'vscode';
 import * as uriPath from '../../vscode-path/resources';
-import { PythonEnvironment } from '.';
 import { getOSType, OSType } from '../../common/utils/platform';
 import { getFilePath } from '../../common/platform/fs-paths';
 import { getTelemetrySafeHashedString } from '../../telemetry/helpers';
+import { getEnvironmentExecutable } from '../../interpreter/helpers';
 
-export function getInterpreterHash(interpreter: PythonEnvironment | {uri: Uri}){
-    const interpreterPath = getNormalizedInterpreterPath(interpreter.uri);
+export function getInterpreterHash(interpreter: {id:string}){
+    const uri = getEnvironmentExecutable(interpreter);
+    const interpreterPath = getNormalizedInterpreterPath(uri);
     return getTelemetrySafeHashedString(interpreterPath.path);
 }
 /**

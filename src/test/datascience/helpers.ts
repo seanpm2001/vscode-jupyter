@@ -29,6 +29,7 @@ import { Matcher } from 'ts-mockito/lib/matcher/type/Matcher';
 import { IInterpreterService } from '../../platform/interpreter/contracts';
 import { isEqual } from '../../platform/vscode-path/resources';
 import { instance } from 'ts-mockito';
+import { getEnvironmentExecutable } from '../../platform/interpreter/helpers';
 
 export async function openNotebook(ipynbFile: vscode.Uri) {
     traceInfo(`Opening notebook ${getFilePath(ipynbFile)}`);
@@ -135,8 +136,9 @@ export async function submitFromPythonFile(
         await interpreterService.refreshInterpreters();
         const interpreter = await interpreterService.getActiveInterpreter();
         assert.ok(
-            isEqual(interpreter?.uri, activeInterpreterPath),
-            `Active interpreter not set, actual ${interpreter?.uri.fsPath}, expected ${activeInterpreterPath}`
+            isEqual(getEnvironmentExecutable(interpreter), activeInterpreterPath),
+            `Active interpreter not set, actual ${getEnvironmentExecutable(interpreter)
+                ?.fsPath}, expected ${activeInterpreterPath}`
         );
     }
     const activeInteractiveWindow = await runCurrentFile(interactiveWindowProvider, untitledPythonFile);

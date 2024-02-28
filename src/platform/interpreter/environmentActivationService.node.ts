@@ -18,7 +18,7 @@ import { KernelProgressReporter } from '../progress/kernelProgressReporter';
 import { Telemetry } from '../common/constants';
 import { ignoreLogging, logValue, traceDecoratorVerbose, traceError, traceVerbose, traceWarning } from '../logging';
 import { TraceOptions } from '../logging/types';
-import { pythonEnvToJupyterEnv, serializePythonEnvironment } from '../api/pythonApi';
+import { serializePythonEnvironment } from '../api/pythonApi';
 import { GlobalPythonExecutablePathService } from './globalPythonExePathService.node';
 import { noop } from '../common/utils/misc';
 import { CancellationToken, workspace } from 'vscode';
@@ -167,11 +167,7 @@ export class EnvironmentActivationService implements IEnvironmentActivationServi
 
         let env = await this.apiProvider.getApi().then((api) =>
             api
-                .getActivatedEnvironmentVariables(
-                    resource,
-                    serializePythonEnvironment(pythonEnvToJupyterEnv(environment))!,
-                    false
-                )
+                .getActivatedEnvironmentVariables(resource, serializePythonEnvironment(environment)!, false)
                 .catch((ex) => {
                     traceError(
                         `Failed to get activated env variables from Python Extension for ${getDisplayPath(

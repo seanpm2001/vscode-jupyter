@@ -19,6 +19,7 @@ import type { IDisposable } from '../../common/types';
 import { PythonExtension } from '@vscode/python-extension';
 import { dispose } from '../../common/utils/lifecycle';
 import { setPythonApi } from '../helpers';
+import { whenKnownEnvironments } from '../../../kernels/helpers.unit.test';
 
 suite('PipEnv installer', async () => {
     let disposables: IDisposable[] = [];
@@ -98,11 +99,14 @@ suite('PipEnv installer', async () => {
 
     test('If active environment is pipenv and is related to workspace folder, return true', async () => {
         const resource = Uri.parse('a');
-        when(environments.known).thenReturn([
+        whenKnownEnvironments(environments).thenReturn([
             {
                 id: '1',
-                tools: [EnvironmentType.Pipenv]
-            } as any
+                tools: [EnvironmentType.Pipenv],
+                executable: {
+                    uri: interpreterPath
+                }
+            }
         ]);
 
         interpreterService

@@ -108,6 +108,7 @@ export class LocalKnownPathKernelSpecFinder
             return newKernelSpecs;
         };
         const promise = fn();
+        console.error('Added ListKernelSpecs promise to monitor');
         this.promiseMonitor.push(promise);
         return promise;
     }

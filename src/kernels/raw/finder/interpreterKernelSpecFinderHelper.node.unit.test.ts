@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 import { assert } from 'chai';
-import * as sinon from 'sinon';
 import * as path from '../../../platform/vscode-path/path';
 import { anything, instance, mock, when } from 'ts-mockito';
 import { CancellationTokenSource, EventEmitter, Uri } from 'vscode';
@@ -15,12 +14,12 @@ import { GlobalPythonKernelSpecFinder, findKernelSpecsInInterpreter } from './in
 import { baseKernelPath, JupyterPaths } from './jupyterPaths.node';
 import { LocalKernelSpecFinder } from './localKernelSpecFinderBase.node';
 import { ITrustedKernelPaths } from './types';
-import { resolvableInstance, uriEquals } from '../../../test/datascience/helpers';
+import { uriEquals } from '../../../test/datascience/helpers';
 import { IJupyterKernelSpec } from '../../types';
 import { LocalKnownPathKernelSpecFinder } from './localKnownPathKernelSpecFinder.node';
 import { mockedVSCodeNamespaces } from '../../../test/vscode-mock';
 import { PythonExtension } from '@vscode/python-extension';
-import { setPythonApi } from '../../../platform/interpreter/helpers';
+import { crateMockedPythonApi, whenKnownEnvironments, whenResolveEnvironment } from '../../helpers.unit.test';
 
 suite('Interpreter Kernel Spec Finder Helper', () => {
     let helper: GlobalPythonKernelSpecFinder;
@@ -30,13 +29,13 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
     let interpreterService: IInterpreterService;
     let extensionChecker: IPythonExtensionChecker;
     let trustedKernels: ITrustedKernelPaths;
-    let venvInterpreter: PythonEnvironment & { sysPrefix: string };
-    const condaInterpreter: PythonEnvironment & { sysPrefix: string } = {
+    let venvInterpreter: PythonEnvironment & { sysPrefix: string, uri: Uri };
+    const condaInterpreter: PythonEnvironment & { sysPrefix: string, uri: Uri } = {
         id: 'conda',
         sysPrefix: 'home/conda',
         uri: Uri.file('conda')
     };
-    const globalInterpreter: PythonEnvironment & { sysPrefix: string } = {
+    const globalInterpreter: PythonEnvironment & { sysPrefix: string, uri: Uri } = {
         id: 'globalInterpreter',
         sysPrefix: 'home/global',
         uri: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python')
@@ -65,23 +64,17 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
             uri: Uri.file('home/venvPython/bin/python')
         };
         disposables.push(helper);
-        const mockedApi = mock<PythonExtension>();
-        sinon.stub(PythonExtension, 'api').resolves(resolvableInstance(mockedApi));
-        setPythonApi(instance(mockedApi));
-        disposables.push({ dispose: () => setPythonApi(undefined as any) });
-        disposables.push({ dispose: () => sinon.restore() });
-        environments = mock<PythonExtension['environments']>();
-        when(mockedApi.environments).thenReturn(instance(environments));
-        when(environments.known).thenReturn([]);
-        when(environments.resolveEnvironment(venvInterpreter.id)).thenResolve({
+        environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([]);
+        whenResolveEnvironment(environments, venvInterpreter.id).thenResolve({
             executable: { sysPrefix: 'home/venvPython' }
-        } as any);
-        when(environments.resolveEnvironment(condaInterpreter.id)).thenResolve({
+        });
+        whenResolveEnvironment(environments, condaInterpreter.id).thenResolve({
             executable: { sysPrefix: 'home/conda' }
-        } as any);
-        when(environments.resolveEnvironment(globalInterpreter.id)).thenResolve({
+        });
+        whenResolveEnvironment(environments, globalInterpreter.id).thenResolve({
             executable: { sysPrefix: 'home/global' }
-        } as any);
+        });
     });
     teardown(() => (disposables = dispose(disposables)));
 
@@ -293,9 +286,23 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
             condaInterpreter,
             globalInterpreter
         ]);
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: venvInterpreter.id,
+                executable: { uri: venvInterpreter.uri }
+            },
+            {
+                id: condaInterpreter.id,
+                executable: { uri: condaInterpreter.uri }
+            },
+            {
+                id: globalInterpreter.id,
+                executable: { uri: globalInterpreter.uri }
+            }
+        ]);
         const interpreter = await helper.findMatchingInterpreter(kernelSpec, 'startUsingPythonInterpreter');
 
-        assert.strictEqual(interpreter, venvInterpreter);
+        assert.strictEqual(interpreter?.id, venvInterpreter.id);
     });
     test('Find interpreter information for python defined in metadata of Kernelspec.json', async () => {
         const kernelSpec: IJupyterKernelSpec = {
@@ -310,7 +317,12 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
                 }
             }
         };
-
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: venvInterpreter.id,
+                executable: { uri: venvInterpreter.uri }
+            }
+        ]);
         when(extensionChecker.isPythonExtensionInstalled).thenReturn(true);
         when(interpreterService.resolvedEnvironments).thenReturn([
             venvInterpreter,
@@ -319,7 +331,7 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
         ]);
         const interpreter = await helper.findMatchingInterpreter(kernelSpec, 'startUsingPythonInterpreter');
 
-        assert.strictEqual(interpreter, venvInterpreter);
+        assert.strictEqual(interpreter?.id, venvInterpreter.id);
     });
     test('Find interpreter information for python defined in argv of Kernelspec.json (when python env is not yet discovered)', async () => {
         const kernelSpec: IJupyterKernelSpec = {
@@ -334,7 +346,12 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
                 }
             }
         };
-
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: venvInterpreter.id,
+                executable: { uri: venvInterpreter.uri }
+            }
+        ]);
         when(extensionChecker.isPythonExtensionInstalled).thenReturn(true);
         when(interpreterService.resolvedEnvironments).thenReturn([condaInterpreter, globalInterpreter]);
         when(interpreterService.getInterpreterDetails(uriEquals(venvInterpreter.uri), anything())).thenResolve(
@@ -344,7 +361,7 @@ suite('Interpreter Kernel Spec Finder Helper', () => {
 
         const interpreter = await helper.findMatchingInterpreter(kernelSpec, 'startUsingPythonInterpreter');
 
-        assert.strictEqual(interpreter, venvInterpreter);
+        assert.strictEqual(interpreter?.id, venvInterpreter.id);
     });
     test('Does not Find interpreter information for python defined in argv of Kernelspec.json (when python env is not yet discovered & kernelspec is not trusted)', async () => {
         const kernelSpec: IJupyterKernelSpec = {

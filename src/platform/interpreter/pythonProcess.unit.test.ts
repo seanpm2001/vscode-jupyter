@@ -8,10 +8,12 @@ import { Uri } from 'vscode';
 import { getFilePath } from '../../platform/common/platform/fs-paths';
 import { IFileSystem } from '../../platform/common/platform/types';
 import { IProcessService, StdErrError } from '../../platform/common/process/types.node';
-import { PythonEnvironment } from '../../platform/pythonEnvironments/info';
 import { noop } from '../../test/core';
 import { createPythonEnv } from './pythonEnvironment.node';
 import { createPythonProcessService } from './pythonProcess.node';
+import type { IDisposable } from '@c4312/evt';
+import { crateMockedPythonApi, whenKnownEnvironments } from '../../kernels/helpers.unit.test';
+import { dispose } from '../common/utils/lifecycle';
 
 use(chaiAsPromised);
 
@@ -20,10 +22,23 @@ suite('PythonProcessService', () => {
     let processService: TypeMoq.IMock<IProcessService>;
     let fileSystem: TypeMoq.IMock<IFileSystem>;
     const pythonPath = Uri.file('path/to/python');
+    let disposables: IDisposable[] = [];
 
     setup(() => {
         processService = TypeMoq.Mock.ofType<IProcessService>(undefined, TypeMoq.MockBehavior.Strict);
         fileSystem = TypeMoq.Mock.ofType<IFileSystem>(undefined, TypeMoq.MockBehavior.Strict);
+        const environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([
+            {
+                id: pythonPath.fsPath,
+                executable: {
+                    uri: pythonPath
+                }
+            }
+        ]);
+    });
+    teardown(() => {
+        disposables = dispose(disposables);
     });
 
     test('execObservable should call processService.execObservable', () => {
@@ -38,7 +53,7 @@ suite('PythonProcessService', () => {
             }
         };
         processService.setup((p) => p.execObservable(getFilePath(pythonPath), args, options)).returns(() => observable);
-        const env = createPythonEnv({ uri: pythonPath } as PythonEnvironment, processService.object, fileSystem.object);
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, fileSystem.object);
         const procs = createPythonProcessService(processService.object, env);
 
         const result = procs.execObservable(args, options);
@@ -63,7 +78,7 @@ suite('PythonProcessService', () => {
         processService
             .setup((p) => p.execObservable(getFilePath(pythonPath), expectedArgs, options))
             .returns(() => observable);
-        const env = createPythonEnv({ uri: pythonPath } as PythonEnvironment, processService.object, fileSystem.object);
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, fileSystem.object);
         const procs = createPythonProcessService(processService.object, env);
 
         const result = procs.execModuleObservable(moduleName, args, options);
@@ -82,7 +97,7 @@ suite('PythonProcessService', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), args, options))
             .returns(() => Promise.resolve({ stdout }));
-        const env = createPythonEnv({ uri: pythonPath } as PythonEnvironment, processService.object, fileSystem.object);
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, fileSystem.object);
         const procs = createPythonProcessService(processService.object, env);
 
         const result = await procs.exec(args, options);
@@ -100,7 +115,7 @@ suite('PythonProcessService', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), expectedArgs, options))
             .returns(() => Promise.resolve({ stdout }));
-        const env = createPythonEnv({ uri: pythonPath } as PythonEnvironment, processService.object, fileSystem.object);
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, fileSystem.object);
         const procs = createPythonProcessService(processService.object, env);
 
         const result = await procs.execModule(moduleName, args, options);
@@ -120,7 +135,7 @@ suite('PythonProcessService', () => {
         processService
             .setup((p) => p.exec(getFilePath(pythonPath), ['-c', `import ${moduleName}`], { throwOnStdErr: true }))
             .returns(() => Promise.reject(new StdErrError('not installed')));
-        const env = createPythonEnv({ uri: pythonPath } as PythonEnvironment, processService.object, fileSystem.object);
+        const env = createPythonEnv({ id: pythonPath.fsPath }, processService.object, fileSystem.object);
         const procs = createPythonProcessService(processService.object, env);
 
         const result = procs.execModule(moduleName, args, options);

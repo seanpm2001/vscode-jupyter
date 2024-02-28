@@ -25,7 +25,6 @@ import { traceVerbose, traceError, traceWarning } from '../../../platform/loggin
 import { getDisplayPath } from '../../../platform/common/platform/fs-paths.node';
 import { IInterpreterService } from '../../../platform/interpreter/contracts';
 import { areInterpreterPathsSame } from '../../../platform/pythonEnvironments/info/interpreter';
-import { PythonEnvironment } from '../../../platform/pythonEnvironments/info';
 import { ITrustedKernelPaths } from './types';
 import { IDisposable } from '../../../platform/common/types';
 import { DisposableBase, dispose } from '../../../platform/common/utils/lifecycle';
@@ -36,9 +35,11 @@ import { LocalKnownPathKernelSpecFinder } from './localKnownPathKernelSpecFinder
 import { areObjectsWithUrisTheSame, noop } from '../../../platform/common/utils/misc';
 import {
     getCachedEnvironment,
+    getCachedEnvironments,
     getCachedSysPrefix,
     getCachedVersion,
     getEnvironmentType,
+    getEnvironmentExecutable,
     getSysPrefix
 } from '../../../platform/interpreter/helpers';
 import { Environment } from '@vscode/python-extension';
@@ -49,7 +50,7 @@ export function localPythonKernelsCacheKey() {
 }
 
 export async function findKernelSpecsInInterpreter(
-    interpreter: PythonEnvironment,
+    interpreter: { id: string },
     cancelToken: CancellationToken,
     jupyterPaths: JupyterPaths,
     kernelSpecFinder: LocalKernelSpecFinder,
@@ -148,7 +149,7 @@ export class InterpreterSpecificKernelSpecsFinder extends DisposableBase {
     );
     public onDidChangeKernels = this._onDidChangeKernels.event;
     constructor(
-        public readonly interpreter: PythonEnvironment,
+        public readonly interpreter: { id: string },
         private readonly interpreterService: IInterpreterService,
         private readonly jupyterPaths: JupyterPaths,
         private readonly extensionChecker: IPythonExtensionChecker,
@@ -204,7 +205,9 @@ export class InterpreterSpecificKernelSpecsFinder extends DisposableBase {
     private async listKernelSpecsImpl() {
         const cancelToken = this.cancelToken.token;
 
-        traceVerbose(`Search for KernelSpecs in Interpreter ${getDisplayPath(this.interpreter.uri)}`);
+        traceVerbose(
+            `Search for KernelSpecs in Interpreter ${getDisplayPath(getEnvironmentExecutable(this.interpreter))}`
+        );
 
         // If the user has interpreters, then don't display the default kernel specs such as `python`, `python3`.
         // Such kernel specs are ambiguous, and we have absolutely no idea what interpreters they point to.
@@ -361,10 +364,8 @@ export class GlobalPythonKernelSpecFinder implements IDisposable {
         kernelSpec: IJupyterKernelSpec,
         kernelConnectionType: KernelConnectionMetadata['kind'],
         cancelToken?: CancellationToken
-    ): Promise<PythonEnvironment | undefined> {
-        const interpreters = this.extensionChecker.isPythonExtensionInstalled
-            ? this.interpreterService.resolvedEnvironments
-            : [];
+    ): Promise<Environment | undefined> {
+        const interpreters = this.extensionChecker.isPythonExtensionInstalled ? getCachedEnvironments() : [];
 
         const pathInArgv =
             kernelSpec && Array.isArray(kernelSpec.argv) && kernelSpec.argv.length > 0 ? kernelSpec.argv[0] : undefined;
@@ -391,7 +392,7 @@ export class GlobalPythonKernelSpecFinder implements IDisposable {
         const exactMatch = interpreters.find((i) => {
             if (
                 kernelSpec.metadata?.interpreter?.path &&
-                areInterpreterPathsSame(Uri.file(kernelSpec.metadata.interpreter.path), i.uri)
+                areInterpreterPathsSame(Uri.file(kernelSpec.metadata.interpreter.path), getEnvironmentExecutable(i))
             ) {
                 traceVerbose(
                     `Kernel ${kernelSpec.name} matches ${getDisplayPath(i.id)} based on metadata.interpreter.`
@@ -417,7 +418,7 @@ export class GlobalPythonKernelSpecFinder implements IDisposable {
         if (pathInArgv && path.basename(pathInArgv) !== pathInArgv) {
             const pathInArgVUri = Uri.file(pathInArgv);
             const exactMatchBasedOnArgv = interpreters.find((i) => {
-                if (areInterpreterPathsSame(pathInArgVUri, i.uri)) {
+                if (areInterpreterPathsSame(pathInArgVUri, getEnvironmentExecutable(i))) {
                     traceVerbose(`Kernel ${kernelSpec.name} matches ${getDisplayPath(i.id)} based on argv.`);
                     return true;
                 }
@@ -442,9 +443,8 @@ export class GlobalPythonKernelSpecFinder implements IDisposable {
             // & in the list of interpreters we have `/usr/bin/python3`, they are both the same.
             // Hence we need to ensure we take that into account (just get the interpreter info from Python extension).
             if (!kernelSpec.specFile || this.trustedKernels.isTrusted(Uri.file(kernelSpec.specFile))) {
-                const interpreterInArgv = await this.interpreterService.getInterpreterDetails(
-                    pathInArgVUri,
-                    cancelToken
+                const interpreterInArgv = getCachedEnvironment(
+                    await this.interpreterService.getInterpreterDetails(pathInArgVUri, cancelToken)
                 );
                 if (cancelToken?.isCancellationRequested) {
                     return;
@@ -491,7 +491,10 @@ export class GlobalPythonKernelSpecFinder implements IDisposable {
         if (kernelSpec.interpreterPath) {
             const kernelSpecInterpreterPath = Uri.file(kernelSpec.interpreterPath);
             const matchBasedOnInterpreterPath = interpreters.find((i) => {
-                if (kernelSpec.interpreterPath && areInterpreterPathsSame(kernelSpecInterpreterPath, i.uri)) {
+                if (
+                    kernelSpec.interpreterPath &&
+                    areInterpreterPathsSame(kernelSpecInterpreterPath, getEnvironmentExecutable(i))
+                ) {
                     traceVerbose(`Kernel ${kernelSpec.name} matches ${getDisplayPath(i.id)} based on interpreterPath.`);
                     return true;
                 }
@@ -502,9 +505,8 @@ export class GlobalPythonKernelSpecFinder implements IDisposable {
             }
             // Possible we still haven't discovered this interpreter, hence get the details from the Python extension.
             if (!kernelSpec.specFile || this.trustedKernels.isTrusted(Uri.file(kernelSpec.specFile))) {
-                const interpreterInInterpreterPath = await this.interpreterService.getInterpreterDetails(
-                    kernelSpecInterpreterPath,
-                    cancelToken
+                const interpreterInInterpreterPath = getCachedEnvironment(
+                    await this.interpreterService.getInterpreterDetails(kernelSpecInterpreterPath, cancelToken)
                 );
                 if (interpreterInInterpreterPath) {
                     return interpreterInInterpreterPath;

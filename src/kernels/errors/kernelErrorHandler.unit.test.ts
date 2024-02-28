@@ -60,7 +60,6 @@ suite('Error Handler Unit Tests', () => {
     let fs: IFileSystem;
     let interpreterService: IInterpreterService;
     const jupyterInterpreter: PythonEnvironment = {
-        uri: Uri.file('Some Path'),
         id: Uri.file('Some Path').fsPath
     };
     let disposables: IDisposable[] = [];

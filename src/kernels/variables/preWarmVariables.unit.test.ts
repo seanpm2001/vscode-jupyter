@@ -20,12 +20,11 @@ suite('PreWarm Env Vars', () => {
     let envActivationService: IEnvironmentActivationService;
     let jupyterInterpreter: JupyterInterpreterService;
     let onDidChangeInterpreter: EventEmitter<PythonEnvironment>;
-    let interpreter: PythonEnvironment;
+    let interpreter: PythonEnvironment & { uri: Uri };
     let extensionChecker: PythonExtensionChecker;
     let zmqSupported: IRawNotebookSupportedService;
     setup(() => {
         interpreter = {
-            uri: Uri.file(''),
             id: Uri.file('').fsPath
         };
         onDidChangeInterpreter = new EventEmitter<PythonEnvironment>();

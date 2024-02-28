@@ -10,7 +10,6 @@ import { JupyterCommands } from '../../../telemetry';
 import { IInstaller, Product } from '../../../platform/interpreter/installer/types';
 import { INbConvertInterpreterDependencyChecker } from '../types';
 import { IJupyterCommandFactory } from '../types.node';
-import { ResourceSet } from '../../../platform/common/utils/map';
 
 /**
  * Checks the dependencies for nbconvert.
@@ -18,7 +17,7 @@ import { ResourceSet } from '../../../platform/common/utils/map';
 @injectable()
 export class NbConvertInterpreterDependencyChecker implements INbConvertInterpreterDependencyChecker {
     // Track interpreters that nbconvert has been installed into
-    private readonly nbconvertInstalledInInterpreter = new ResourceSet();
+    private readonly nbconvertInstalledInInterpreter = new Set<string>();
     constructor(
         @inject(IInstaller) private readonly installer: IInstaller,
         @inject(IJupyterCommandFactory) private readonly commandFactory: IJupyterCommandFactory
@@ -27,14 +26,14 @@ export class NbConvertInterpreterDependencyChecker implements INbConvertInterpre
     // Check to see if nbconvert is installed in the given interpreter, note that we also need jupyter since that supplies the needed
     // template files for conversion
     public async isNbConvertInstalled(interpreter: PythonEnvironment, _token?: CancellationToken): Promise<boolean> {
-        if (this.nbconvertInstalledInInterpreter.has(interpreter.uri)) {
+        if (this.nbconvertInstalledInInterpreter.has(interpreter.id)) {
             return true;
         }
         const isInstalled: boolean =
             !!(await this.installer.isInstalled(Product.nbconvert, interpreter)) &&
             !!(await this.installer.isInstalled(Product.jupyter, interpreter));
         if (isInstalled === true) {
-            this.nbconvertInstalledInInterpreter.add(interpreter.uri);
+            this.nbconvertInstalledInInterpreter.add(interpreter.id);
         }
         return isInstalled;
     }

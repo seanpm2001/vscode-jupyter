@@ -48,11 +48,11 @@ export interface IInterpreterStatusbarVisibilityFilter {
 }
 
 // Python extension still returns strings for paths
-export type InterpreterInformation_PythonApi = {
+export interface InterpreterInformation_PythonApi {
     path: string;
     version?: PythonVersion;
     sysVersion?: string;
-};
+}
 
 export interface PythonEnvironment_PythonApi extends InterpreterInformation_PythonApi {
     displayName?: string;

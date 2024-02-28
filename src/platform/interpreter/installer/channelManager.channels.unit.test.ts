@@ -16,7 +16,7 @@ suite('Installation - installation channels', () => {
     let serviceContainer: IServiceContainer;
     let cm: InstallationChannelManager;
     const interpreter: PythonEnvironment = {
-        uri: Uri.file('foobar'),
+        // uri: Uri.file('foobar'),
         id: Uri.file('foobar').fsPath
     };
 

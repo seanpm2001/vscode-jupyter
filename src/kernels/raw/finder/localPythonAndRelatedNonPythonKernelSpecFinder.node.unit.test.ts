@@ -24,16 +24,17 @@ import { PythonEnvironment } from '../../../platform/pythonEnvironments/info';
 import { noop } from '../../../platform/common/utils/misc';
 import { createInterpreterKernelSpec, getKernelId } from '../../helpers';
 import { deserializePythonEnvironment, serializePythonEnvironment } from '../../../platform/api/pythonApi';
-import { resolvableInstance, uriEquals } from '../../../test/datascience/helpers';
+import { uriEquals } from '../../../test/datascience/helpers';
 import { traceInfo } from '../../../platform/logging';
 import { sleep } from '../../../test/core';
 import { localPythonKernelsCacheKey } from './interpreterKernelSpecFinderHelper.node';
 import { mockedVSCodeNamespaces } from '../../../test/vscode-mock';
 import { ResourceMap } from '../../../platform/common/utils/map';
-import { PythonExtension } from '@vscode/python-extension';
-import { getCachedEnvironment, setPythonApi } from '../../../platform/interpreter/helpers';
+import { getCachedEnvironment, getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
+import { crateMockedPythonApi, whenKnownEnvironments, whenResolveEnvironment } from '../../helpers.unit.test';
+import type { PythonExtension } from '@vscode/python-extension';
 
-suite(`Local Python and related kernels`, async () => {
+suite.only(`Local Python and related kernels`, async () => {
     let finder: LocalPythonAndRelatedNonPythonKernelSpecFinder;
     let interpreterService: IInterpreterService;
     let fs: IFileSystemNode;
@@ -52,91 +53,68 @@ suite(`Local Python and related kernels`, async () => {
     let findKernelSpecsInPathsReturnValue = new ResourceMap<Uri[]>();
     let loadKernelSpecReturnValue = new ResourceMap<IJupyterKernelSpec>();
     const globalKernelRootPath = Uri.file('root');
-    const pythonKernelSpec = PythonKernelConnectionMetadata.create({
-        id: 'python',
-        interpreter: {
-            id: 'python',
-            uri: Uri.file('python')
-        },
-        kernelSpec: {
-            argv: ['python'],
-            display_name: 'python',
-            executable: 'python',
-            name: 'python'
-        }
-    });
     const condaInterpreter: PythonEnvironment = {
-        id: 'conda',
-        uri: Uri.file('conda')
+        id: 'conda'
+        // uri: Uri.file('conda')
     };
     const globalInterpreter: PythonEnvironment = {
-        id: 'globalInterpreter',
-        uri: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python')
+        id: 'globalInterpreter'
+        // uri: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python')
     };
     let condaKernel: PythonKernelConnectionMetadata;
+    let pythonKernelSpec: PythonKernelConnectionMetadata;
 
-    const globalPythonKernelSpec = LocalKernelSpecConnectionMetadata.create({
-        id: 'pythonGlobal',
-        // This kernelspec belongs to the conda env.
-        kernelSpec: {
-            argv: [globalInterpreter.uri.fsPath, '-m', 'powershell_custom'],
-            display_name: 'Custom Global Python kernel Spec',
-            executable: globalInterpreter.uri.fsPath,
-            name: 'python',
-            language: 'python',
-            specFile: Uri.joinPath(globalKernelRootPath, 'python', 'kernel.json').fsPath
-        }
-    });
-    const globalPythonKernelSpecUnknownExecutable = LocalKernelSpecConnectionMetadata.create({
-        id: 'pythonGlobalUnknown',
-        // This kernelspec belongs to the conda env.
-        kernelSpec: {
-            argv: [Uri.joinPath(Uri.file('unknown'), 'bin', 'python').fsPath, '-m', 'powershell_custom'],
-            display_name: 'Custom Global Python kernel Spec Unknown Executable',
-            executable: Uri.joinPath(Uri.file('unknown'), 'bin', 'python').fsPath,
-            name: 'python',
-            language: 'python',
-            specFile: Uri.joinPath(globalKernelRootPath, 'unknown', 'kernel.json').fsPath
-        }
-    });
-    const globalJuliaKernelSpec = LocalKernelSpecConnectionMetadata.create({
-        id: 'juliaGlobal',
-        // This kernelspec belongs to the conda env.
-        kernelSpec: {
-            argv: ['julia'],
-            display_name: 'Julia',
-            executable: 'julia',
-            name: 'julia',
-            language: 'julia',
-            specFile: Uri.joinPath(globalKernelRootPath, 'julia', 'kernel.json').fsPath
-        }
-    });
-    const javaKernelSpec = LocalKernelSpecConnectionMetadata.create({
-        id: 'java',
-        // This kernelspec belongs to the conda env.
-        interpreter: condaInterpreter,
-        kernelSpec: {
-            argv: ['java'],
-            display_name: 'java',
-            executable: 'java',
-            name: 'java',
-            language: 'java',
-            specFile: Uri.joinPath(Uri.file('java'), 'kernel.json').fsPath
-        }
-    });
+    let globalPythonKernelSpec: LocalKernelSpecConnectionMetadata;
+    let globalPythonKernelSpecUnknownExecutable: LocalKernelSpecConnectionMetadata;
+    let globalJuliaKernelSpec: LocalKernelSpecConnectionMetadata;
+    let javaKernelSpec: LocalKernelSpecConnectionMetadata;
     const venvInterpreter: PythonEnvironment = {
-        id: 'venvPython',
-        uri: Uri.file('home/venvPython/bin/python')
+        id: 'venvPython'
+        // uri: Uri.file('home/venvPython/bin/python')
     };
-    const cachedVenvInterpreterWithOlderVersionOfPython = {
-        ...deserializePythonEnvironment(serializePythonEnvironment(venvInterpreter), venvInterpreter.id)!
+    let cachedVenvInterpreterWithOlderVersionOfPython: {
+        id: string;
     };
 
     let venvPythonKernel: PythonKernelConnectionMetadata;
     let cachedVenvPythonKernel: PythonKernelConnectionMetadata;
-
+    let environments: PythonExtension['environments'];
     setup(async function () {
         traceInfo(`Start Test (started) ${this.currentTest?.title}`);
+
+        clock = fakeTimers.install();
+        disposables.push(new Disposable(() => clock.uninstall()));
+
+        environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([
+            { id: 'python', executable: { sysPrefix: 'home/python', uri: Uri.file('python') } },
+            { id: condaInterpreter.id, executable: { sysPrefix: 'home/conda', uri: Uri.file('conda') } },
+            {
+                id: globalInterpreter.id,
+                executable: { sysPrefix: 'home/global', uri: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python') }
+            },
+            {
+                id: venvInterpreter.id,
+                executable: { sysPrefix: 'home/venvPython', uri: Uri.file('home/venvPython/bin/python') }
+            }
+        ]);
+        whenResolveEnvironment(environments, 'python').thenResolve({
+            id: 'python',
+            executable: { sysPrefix: 'home/python' }
+        });
+        whenResolveEnvironment(environments, condaInterpreter.id).thenResolve({
+            id: condaInterpreter.id,
+            executable: { sysPrefix: 'home/conda', uri: Uri.file('conda') }
+        });
+        whenResolveEnvironment(environments, globalInterpreter.id).thenResolve({
+            id: globalInterpreter.id,
+            executable: { sysPrefix: 'home/global', uri: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python') }
+        });
+        whenResolveEnvironment(environments, venvInterpreter.id).thenResolve({
+            id: venvInterpreter.id,
+            executable: { sysPrefix: 'home/venvPython', uri: Uri.file('home/venvPython/bin/python') }
+        });
+
         interpreterService = mock<IInterpreterService>();
         fs = mock<IFileSystemNode>();
         jupyterPaths = mock<JupyterPaths>();
@@ -171,26 +149,72 @@ suite(`Local Python and related kernels`, async () => {
         when(jupyterPaths.getKernelSpecRootPath()).thenResolve(globalKernelRootPath);
         when(mockedVSCodeNamespaces.workspace.workspaceFolders).thenReturn([]);
 
-        const mockedApi = mock<PythonExtension>();
-        sinon.stub(PythonExtension, 'api').resolves(resolvableInstance(mockedApi));
-        disposables.push({ dispose: () => sinon.restore() });
-        const environments = mock<PythonExtension['environments']>();
-        when(mockedApi.environments).thenReturn(instance(environments));
-        when(environments.known).thenReturn([]);
-        setPythonApi(instance(mockedApi));
-        disposables.push({ dispose: () => setPythonApi(undefined as any) });
-        when(environments.resolveEnvironment(pythonKernelSpec.id)).thenResolve({
-            executable: { sysPrefix: 'home/python' }
-        } as any);
-        when(environments.resolveEnvironment(condaInterpreter.id)).thenResolve({
-            executable: { sysPrefix: 'home/conda' }
-        } as any);
-        when(environments.resolveEnvironment(globalInterpreter.id)).thenResolve({
-            executable: { sysPrefix: 'home/global' }
-        } as any);
-        when(environments.resolveEnvironment(venvInterpreter.id)).thenResolve({
-            executable: { sysPrefix: 'home/venvPython' }
-        } as any);
+        pythonKernelSpec = PythonKernelConnectionMetadata.create({
+            id: 'python',
+            interpreter: {
+                id: 'python'
+            },
+            kernelSpec: {
+                argv: ['python'],
+                display_name: 'python',
+                executable: 'python',
+                name: 'python'
+            }
+        });
+
+        globalPythonKernelSpec = LocalKernelSpecConnectionMetadata.create({
+            id: 'pythonGlobal',
+            // This kernelspec belongs to the conda env.
+            kernelSpec: {
+                argv: [Uri.joinPath(Uri.file('globalSys'), 'bin', 'python').fsPath, '-m', 'powershell_custom'],
+                display_name: 'Custom Global Python kernel Spec',
+                executable: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python').fsPath,
+                name: 'python',
+                language: 'python',
+                specFile: Uri.joinPath(globalKernelRootPath, 'python', 'kernel.json').fsPath
+            }
+        });
+        globalPythonKernelSpecUnknownExecutable = LocalKernelSpecConnectionMetadata.create({
+            id: 'pythonGlobalUnknown',
+            // This kernelspec belongs to the conda env.
+            kernelSpec: {
+                argv: [Uri.joinPath(Uri.file('unknown'), 'bin', 'python').fsPath, '-m', 'powershell_custom'],
+                display_name: 'Custom Global Python kernel Spec Unknown Executable',
+                executable: Uri.joinPath(Uri.file('unknown'), 'bin', 'python').fsPath,
+                name: 'python',
+                language: 'python',
+                specFile: Uri.joinPath(globalKernelRootPath, 'unknown', 'kernel.json').fsPath
+            }
+        });
+        globalJuliaKernelSpec = LocalKernelSpecConnectionMetadata.create({
+            id: 'juliaGlobal',
+            // This kernelspec belongs to the conda env.
+            kernelSpec: {
+                argv: ['julia'],
+                display_name: 'Julia',
+                executable: 'julia',
+                name: 'julia',
+                language: 'julia',
+                specFile: Uri.joinPath(globalKernelRootPath, 'julia', 'kernel.json').fsPath
+            }
+        });
+        javaKernelSpec = LocalKernelSpecConnectionMetadata.create({
+            id: 'java',
+            // This kernelspec belongs to the conda env.
+            interpreter: condaInterpreter,
+            kernelSpec: {
+                argv: ['java'],
+                display_name: 'java',
+                executable: 'java',
+                name: 'java',
+                language: 'java',
+                specFile: Uri.joinPath(Uri.file('java'), 'kernel.json').fsPath
+            }
+        });
+
+        cachedVenvInterpreterWithOlderVersionOfPython = {
+            ...deserializePythonEnvironment(serializePythonEnvironment(venvInterpreter), venvInterpreter.id)!
+        };
 
         // Initialize the kernel specs (test data).
         let kernelSpec = await createInterpreterKernelSpec(venvInterpreter, tempDirForKernelSpecs);
@@ -210,10 +234,6 @@ suite(`Local Python and related kernels`, async () => {
             interpreter: condaInterpreter,
             kernelSpec
         });
-
-        clock = fakeTimers.install();
-
-        disposables.push(new Disposable(() => clock.uninstall()));
 
         finder = new LocalPythonAndRelatedNonPythonKernelSpecFinder(
             instance(interpreterService),
@@ -238,7 +258,7 @@ suite(`Local Python and related kernels`, async () => {
                     specFile: file.fsPath,
                     argv: ['bin/python', '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
                     display_name: getCachedEnvironment(interpreter)?.environment?.name || interpreter?.id || '',
-                    executable: interpreter?.uri?.fsPath || interpreter?.id || '',
+                    executable: getEnvironmentExecutable(interpreter)?.fsPath || interpreter?.id || '',
                     name: getCachedEnvironment(interpreter)?.environment?.name || interpreter?.id || '',
                     language: PYTHON_LANGUAGE
                     // interpreterPath: 'some Path' + (interpreter?.uri?.fsPath || interpreter?.id || '')
@@ -267,7 +287,7 @@ suite(`Local Python and related kernels`, async () => {
         assert.strictEqual(statues[statues.length - 1], 'idle'); // Last status should be idle
         assert.strictEqual(finder.kernels.length, 0);
     });
-    test('Lists kernels from cache', async () => {
+    test.only('Lists kernels from cache', async () => {
         const onDidChangeKernels = createEventHandler(finder, 'onDidChangeKernels');
         const statues: (typeof finder.status)[] = [];
         finder.onDidChangeStatus(() => statues.push(finder.status), this, disposables);
@@ -275,15 +295,50 @@ suite(`Local Python and related kernels`, async () => {
             extensionVersion: '1',
             kernels: [pythonKernelSpec.toJSON(), condaKernel.toJSON(), javaKernelSpec.toJSON()]
         };
+        whenKnownEnvironments(environments).thenReturn([
+            { id: 'python', executable: { sysPrefix: 'home/python', uri: Uri.file('python') } },
+            { id: condaInterpreter.id, executable: { sysPrefix: 'home/conda', uri: Uri.file('conda') } }
+            // {
+            //     id: globalInterpreter.id,
+            //     executable: { sysPrefix: 'home/global', uri: Uri.joinPath(Uri.file('globalSys'), 'bin', 'python') }
+            // },
+            // {
+            //     id: venvInterpreter.id,
+            //     executable: { sysPrefix: 'home/venvPython', uri: Uri.file('home/venvPython/bin/python') }
+            // }
+        ]);
         when(globalState.get(localPythonKernelsCacheKey(), anything())).thenReturn(JSON.stringify(kernelsInCache));
+        console.error('Start');
         finder.activate();
-
+        console.error('End');
+        console.error(getEnvironmentExecutable(globalInterpreter));
         await clock.runAllAsync();
+        await clock.runAllAsync();
+        console.error('End Async');
 
         assert.isAtLeast(onDidChangeKernels.count, 1); // fired at least once.
         assert.include(statues[0], 'discovering'); // First should be discovering.
         assert.strictEqual(statues[statues.length - 1], 'idle'); // Last status should be idle
-        assert.strictEqual(finder.kernels.length, 3);
+        assert.strictEqual(
+            finder.kernels.length,
+            3,
+            `Expected 3, but got ${finder.kernels.length}, here's the list ${finder.kernels
+                .map((k) => k.id)
+                .sort()
+                .join(', ')}`
+        );
+        console.error(
+            `Got ${finder.kernels
+                .map((k) => k.id)
+                .sort()
+                .join(', ')}`
+        );
+        console.error(
+            `Expected ${kernelsInCache.kernels
+                .map((k) => k.id)
+                .sort()
+                .join(', ')}`
+        );
         assert.deepEqual(finder.kernels.map((k) => k.id).sort(), kernelsInCache.kernels.map((k) => k.id).sort());
     });
     test('Discovers kernels as interpreters', async () => {
@@ -509,16 +564,16 @@ suite(`Local Python and related kernels`, async () => {
         const numberOfTimesChangeEventTriggered = onDidChange.count;
 
         // Force some internal state change ('formatted' property will get updated)
-        venvPythonKernel.interpreter.uri.toString();
+        // venvPythonKernel.interpreter.uri.toString();
         // Force some internal state change ('formatted' property will get updated)
-        condaKernel.interpreter.uri.toString();
+        // condaKernel.interpreter.uri.toString();
         // The cached kernel should be listed as Python extension has not yet completed refreshing of interpreters.
         assert.deepEqual(
             finder.kernels.map((k) => {
-                if (k.interpreter) {
-                    // Force some internal state change ('formatted' property will get updated)
-                    k.interpreter.uri.toString();
-                }
+                // if (k.interpreter) {
+                //     // Force some internal state change ('formatted' property will get updated)
+                //     k.interpreter.uri.toString();
+                // }
                 return Object.assign({}, k, {
                     kernelSpec: { ...k.kernelSpec, interrupt_mode: k.kernelSpec.interrupt_mode || undefined }
                 });

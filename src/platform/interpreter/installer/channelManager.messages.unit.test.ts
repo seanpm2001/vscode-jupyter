@@ -20,7 +20,7 @@ import { dispose } from '../../common/utils/lifecycle';
 import { setPythonApi } from '../helpers';
 
 const info: PythonEnvironment = {
-    uri: Uri.file(''),
+    // uri: Uri.file(''),
     id: Uri.file('').fsPath
 };
 
@@ -139,8 +139,8 @@ suite('Installation - channel messages', () => {
         methodType: 'showNoInstallersMessage' | 'getInstallationChannel' = 'showNoInstallersMessage'
     ): Promise<void> {
         const activeInterpreter: PythonEnvironment = {
-            ...info,
-            uri: Uri.file('')
+            ...info
+            // uri: Uri.file('')
         };
         when(environments.known).thenReturn([
             {

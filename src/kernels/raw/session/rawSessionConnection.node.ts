@@ -15,6 +15,7 @@ import { getNameOfKernelConnection } from '../../helpers';
 import { CancellationToken, Uri } from 'vscode';
 import { trackKernelResourceInformation } from '../../telemetry/helper';
 import { RawKernelConnection } from './rawKernelConnection.node';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 /*
 RawSession class implements a jupyterlab ISession object
@@ -104,7 +105,10 @@ export class RawSessionConnection implements Session.ISessionConnection {
         // Unique ID for this session instance
         this.id = uuid();
         this.name = getNameOfKernelConnection(this.kernelConnectionMetadata) || 'python3';
-        this.path = this.resource?.fsPath || this.kernelConnectionMetadata.interpreter?.uri.fsPath || 'kernel_path';
+        this.path =
+            this.resource?.fsPath ||
+            getEnvironmentExecutable(this.kernelConnectionMetadata.interpreter)?.fsPath ||
+            'kernel_path';
         // ID for our client JMP connection
         this._kernel = new RawKernelConnection(
             resource,

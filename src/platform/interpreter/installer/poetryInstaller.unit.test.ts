@@ -24,6 +24,7 @@ import { dispose } from '../../common/utils/lifecycle';
 import { PythonExtension } from '@vscode/python-extension';
 import { resolvableInstance } from '../../../test/datascience/helpers';
 import { setPythonApi } from '../helpers';
+import { whenKnownEnvironments } from '../../../kernels/helpers.unit.test';
 
 suite('Module Installer - Poetry', () => {
     class TestInstaller extends PoetryInstaller {
@@ -98,14 +99,16 @@ suite('Module Installer - Poetry', () => {
 
     test('Is not supported when there is no workspace', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
-        when(environments.known).thenReturn([
+        whenKnownEnvironments(environments).thenReturn([
             {
                 id: interpreter.id,
-                tools: [EnvironmentType.Poetry]
-            } as any
+                tools: [EnvironmentType.Poetry],
+                executable: {
+                    uri: Uri.file('foobar')
+                }
+            }
         ]);
 
         when(mockedVSCodeNamespaces.workspace.getWorkspaceFolder(anything())).thenReturn();
@@ -116,14 +119,16 @@ suite('Module Installer - Poetry', () => {
     });
     test('Get Executable info', async () => {
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
-        when(environments.known).thenReturn([
+        whenKnownEnvironments(environments).thenReturn([
             {
                 id: interpreter.id,
-                tools: [EnvironmentType.Poetry]
-            } as any
+                tools: [EnvironmentType.Poetry],
+                executable: {
+                    uri: Uri.file('foobar')
+                }
+            }
         ]);
 
         const settings = mock(JupyterSettings);
@@ -139,14 +144,16 @@ suite('Module Installer - Poetry', () => {
         const uri = Uri.file(project1);
         const settings = mock(JupyterSettings);
         const interpreter: PythonEnvironment = {
-            uri: Uri.file(path.join(project1, '.venv', 'scripts', 'python.exe')),
             id: Uri.file(path.join(project1, '.venv', 'scripts', 'python.exe')).fsPath
         };
-        when(environments.known).thenReturn([
+        whenKnownEnvironments(environments).thenReturn([
             {
                 id: interpreter.id,
-                tools: [EnvironmentType.Poetry]
-            } as any
+                tools: [EnvironmentType.Poetry],
+                executable: {
+                    uri: Uri.file(path.join(project1, '.venv', 'scripts', 'python.exe'))
+                }
+            }
         ]);
 
         when(configurationService.getSettings(anything())).thenReturn(instance(settings));
@@ -162,14 +169,16 @@ suite('Module Installer - Poetry', () => {
         const uri = Uri.file(project1);
         const settings = mock(JupyterSettings);
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
-        when(environments.known).thenReturn([
+        whenKnownEnvironments(environments).thenReturn([
             {
                 id: interpreter.id,
-                tools: [EnvironmentType.Poetry]
-            } as any
+                tools: [EnvironmentType.Poetry],
+                executable: {
+                    uri: Uri.file('foobar')
+                }
+            }
         ]);
 
         when(configurationService.getSettings(anything())).thenReturn(instance(settings));
@@ -185,14 +194,16 @@ suite('Module Installer - Poetry', () => {
         const uri = Uri.file(project1);
         const settings = mock(JupyterSettings);
         const interpreter: PythonEnvironment = {
-            uri: Uri.file('foobar'),
             id: Uri.file('foobar').fsPath
         };
-        when(environments.known).thenReturn([
+        whenKnownEnvironments(environments).thenReturn([
             {
                 id: interpreter.id,
-                tools: [EnvironmentType.Conda]
-            } as any
+                tools: [EnvironmentType.Conda],
+                executable: {
+                    uri: Uri.file('foobar')
+                }
+            }
         ]);
 
         when(configurationService.getSettings(anything())).thenReturn(instance(settings));

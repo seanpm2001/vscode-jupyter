@@ -25,6 +25,7 @@ import * as path from '../../../platform/vscode-path/path';
 import {
     getCachedEnvironment,
     getCachedVersion,
+    getEnvironmentExecutable,
     getPythonEnvironmentName
 } from '../../../platform/interpreter/helpers';
 
@@ -67,7 +68,10 @@ export async function findKernelSpecMatchingInterpreter(
 
     // if we have more than one match then something is wrong.
     if (result.length > 1) {
-        traceError(`More than one kernel spec matches the interpreter ${interpreter.uri}.`, result);
+        traceError(
+            `More than one kernel spec matches the interpreter ${getEnvironmentExecutable(interpreter)}.`,
+            result
+        );
         if (isCI) {
             throw new Error('More than one kernelspec matches the intererpreter');
         }
@@ -103,7 +107,9 @@ export async function rankKernels(
         `Find preferred kernel for ${getDisplayPath(resource)} with metadata ${JSON.stringify(
             notebookMetadata || {}
         )} & preferred interpreter ${
-            preferredInterpreter?.uri ? getDisplayPath(preferredInterpreter?.uri) : '<undefined>'
+            getEnvironmentExecutable(preferredInterpreter)
+                ? getDisplayPath(getEnvironmentExecutable(preferredInterpreter))
+                : '<undefined>'
         }`
     );
 

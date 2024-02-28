@@ -31,8 +31,8 @@ import { mockedVSCodeNamespaces } from '../../test/vscode-mock';
 
 suite('Controller Registration', () => {
     const activePythonEnv: PythonEnvironment = {
-        id: 'activePythonEnv',
-        uri: Uri.file('activePythonEnv')
+        id: 'activePythonEnv'
+        // uri: Uri.file('activePythonEnv')
     };
     const activePythonConnection = PythonKernelConnectionMetadata.create({
         id: 'activePython',
@@ -45,8 +45,8 @@ suite('Controller Registration', () => {
         interpreter: activePythonEnv
     });
     const condaPython: PythonEnvironment = {
-        id: 'condaPython',
-        uri: Uri.file('condaPython')
+        id: 'condaPython'
+        // uri: Uri.file('condaPython')
     };
     const condaPythonConnection = PythonKernelConnectionMetadata.create({
         id: 'condaKernel',

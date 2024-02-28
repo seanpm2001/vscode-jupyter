@@ -3,7 +3,7 @@
 
 import { traceError, traceInfoIfCI, traceVerbose, traceWarning } from '../../../platform/logging';
 import { ObservableExecutionResult } from '../../../platform/common/process/types.node';
-import { EnvironmentType, PythonEnvironment } from '../../../platform/pythonEnvironments/info';
+import { EnvironmentType } from '../../../platform/pythonEnvironments/info';
 import { inject, injectable } from 'inversify';
 import { IInterpreterService } from '../../../platform/interpreter/contracts';
 import { IAsyncDisposable, IDisposableRegistry, IExtensionContext, Resource } from '../../../platform/common/types';
@@ -14,7 +14,7 @@ import { swallowExceptions } from '../../../platform/common/utils/misc';
 import { splitLines } from '../../../platform/common/helpers';
 import { IPythonExecutionFactory } from '../../../platform/interpreter/types.node';
 import { getCachedVersion, getEnvironmentType } from '../../../platform/interpreter/helpers';
-function isBestPythonInterpreterForAnInterruptDaemon(interpreter: PythonEnvironment) {
+function isBestPythonInterpreterForAnInterruptDaemon(interpreter: { id: string }) {
     // Give preference to globally installed python environments.
     // The assumption is that users are more likely to uninstall/delete local python environments
     // than global ones.
@@ -34,7 +34,7 @@ function isBestPythonInterpreterForAnInterruptDaemon(interpreter: PythonEnvironm
     }
     return false;
 }
-function isSupportedPythonVersion(interpreter: PythonEnvironment) {
+function isSupportedPythonVersion(interpreter: { id: string }) {
     let major = getCachedVersion(interpreter)?.major ?? 3;
     let minor = getCachedVersion(interpreter)?.minor ?? 6;
     if (
@@ -73,7 +73,7 @@ export class PythonKernelInterruptDaemon {
         @inject(IInterpreterService) private readonly interpreters: IInterpreterService,
         @inject(IExtensionContext) private readonly context: IExtensionContext
     ) {}
-    public async createInterrupter(pythonEnvironment: PythonEnvironment, resource: Resource): Promise<Interrupter> {
+    public async createInterrupter(pythonEnvironment: { id: string }, resource: Resource): Promise<Interrupter> {
         try {
             return await this.createInterrupterImpl(pythonEnvironment, resource);
         } catch (ex) {
@@ -81,10 +81,7 @@ export class PythonKernelInterruptDaemon {
             return this.createInterrupterImpl(pythonEnvironment, resource);
         }
     }
-    private async createInterrupterImpl(
-        pythonEnvironment: PythonEnvironment,
-        resource: Resource
-    ): Promise<Interrupter> {
+    private async createInterrupterImpl(pythonEnvironment: { id: string }, resource: Resource): Promise<Interrupter> {
         const interruptHandle = (await this.sendCommand(
             { command: 'INITIALIZE_INTERRUPT' },
             pythonEnvironment,
@@ -110,7 +107,7 @@ export class PythonKernelInterruptDaemon {
         };
     }
 
-    private async getInterpreter(interpreter: PythonEnvironment) {
+    private async getInterpreter(interpreter: { id: string }) {
         if (interpreter && isBestPythonInterpreterForAnInterruptDaemon(interpreter)) {
             return interpreter;
         }
@@ -125,7 +122,7 @@ export class PythonKernelInterruptDaemon {
             interpreter
         );
     }
-    private async initializeInterrupter(pythonEnvironment: PythonEnvironment, resource: Resource) {
+    private async initializeInterrupter(pythonEnvironment: { id: string }, resource: Resource) {
         if (this.startupPromise) {
             return this.startupPromise;
         }
@@ -235,7 +232,7 @@ export class PythonKernelInterruptDaemon {
     }
     private async sendCommand(
         command: Command,
-        pythonEnvironment: PythonEnvironment,
+        pythonEnvironment: { id: string },
         resource: Resource
     ): Promise<unknown> {
         const deferred = createDeferred<unknown>();

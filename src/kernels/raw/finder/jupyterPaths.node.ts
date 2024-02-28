@@ -152,8 +152,8 @@ export class JupyterPaths {
      * Source for priority & paths can be found in jupyter_path function in site-packages/jupyter_core/paths.py
      * Documentation can be found here https://docs.jupyter.org/en/latest/use/jupyter-directories.html#data-files
      */
-    public async getDataDirs(options: { resource: Resource; interpreter?: PythonEnvironment }): Promise<Uri[]> {
-        const key = options.interpreter ? options.interpreter.uri.toString() : '';
+    public async getDataDirs(options: { resource: Resource; interpreter?: { id: string } }): Promise<Uri[]> {
+        const key = options.interpreter?.id || '';
         if (!this.cachedDataDirs.has(key)) {
             this.cachedDataDirs.set(key, this.getDataDirsImpl(options.resource, options.interpreter));
         }
@@ -166,7 +166,7 @@ export class JupyterPaths {
     )
     private async getDataDirsImpl(
         resource: Resource,
-        @logValue<PythonEnvironment>('id') interpreter?: PythonEnvironment
+        @logValue<PythonEnvironment>('id') interpreter?: { id: string }
     ): Promise<Uri[]> {
         // When adding paths keep distinct values and preserve the order.
         const dataDir = new ResourceMap<number>();
@@ -182,7 +182,7 @@ export class JupyterPaths {
         // 2. Add the paths based on ENABLE_USER_SITE
         if (interpreter) {
             try {
-                traceInfoIfCI(`Getting Jupyter Data Dir for ${interpreter.uri.fsPath}`);
+                traceInfoIfCI(`Getting Jupyter Data Dir for ${interpreter.id}`);
                 const factory = await this.pythonExecFactory.createActivatedEnvironment({
                     interpreter,
                     resource

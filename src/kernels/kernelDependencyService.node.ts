@@ -33,7 +33,7 @@ import { isModulePresentInEnvironment } from '../platform/interpreter/installer/
 import { sendKernelTelemetryEvent } from './telemetry/sendKernelTelemetryEvent';
 import { isPythonKernelConnection } from './helpers';
 import { isCodeSpace } from '../platform/constants';
-import { getEnvironmentType, getPythonEnvDisplayName } from '../platform/interpreter/helpers';
+import { getEnvironmentType, getEnvironmentExecutable, getPythonEnvDisplayName } from '../platform/interpreter/helpers';
 
 /**
  * Responsible for managing dependencies of a Python interpreter required to run as a Jupyter Kernel.
@@ -191,7 +191,9 @@ export class KernelDependencyService implements IKernelDependencyService {
             (await isModulePresentInEnvironmentCache(this.memento, Product.ipykernel, kernelConnection.interpreter))
         ) {
             traceInfo(
-                `IPyKernel found previously in this environment ${getDisplayPath(kernelConnection.interpreter.uri)}`
+                `IPyKernel found previously in this environment ${getDisplayPath(
+                    getEnvironmentExecutable(kernelConnection.interpreter)
+                )}`
             );
             return true;
         }
@@ -212,7 +214,7 @@ export class KernelDependencyService implements IKernelDependencyService {
 
     private async runInstaller(
         resource: Resource,
-        interpreter: PythonEnvironment,
+        interpreter: { id: string },
         ui: IDisplayOptions,
         cancelTokenSource: CancellationTokenSource,
         cannotChangeKernels?: boolean,

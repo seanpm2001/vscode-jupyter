@@ -22,7 +22,6 @@ import {
     Disposable,
     EventEmitter,
     PortAutoForwardAction,
-    Uri,
     type PortAttributesProvider
 } from 'vscode';
 import { KernelProcess } from './kernelProcess.node';
@@ -82,8 +81,8 @@ suite('kernel Launcher', () => {
         const kernelSpec = PythonKernelConnectionMetadata.create({
             id: '1',
             interpreter: {
-                id: '2',
-                uri: Uri.file('python')
+                id: '2'
+                // uri: Uri.file('python')
             },
             kernelSpec: {
                 argv: ['python', '-m', 'ipykernel_launcher', '-f', '{connection_file}'],

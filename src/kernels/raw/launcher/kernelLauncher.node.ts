@@ -41,6 +41,7 @@ import { IPythonExecutionFactory } from '../../../platform/interpreter/types.nod
 import { UsedPorts, ignorePortForwarding } from '../../common/usedPorts';
 import { isPythonKernelConnection } from '../../helpers';
 import { once } from '../../../platform/common/utils/events';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 const PortFormatString = `kernelLauncherPortStart_{0}.tmp`;
 // Launches and returns a kernel process given a resource or python interpreter.
@@ -164,7 +165,7 @@ export class KernelLauncher implements IKernelLauncher {
         if (token.isCancellationRequested) {
             return;
         }
-        const displayInterpreterPath = getDisplayPath(interpreter.uri);
+        const displayInterpreterPath = getDisplayPath(getEnvironmentExecutable(interpreter));
         if (output.stdout) {
             const outputs = output.stdout
                 .trim()

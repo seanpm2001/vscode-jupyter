@@ -14,6 +14,7 @@ import { JupyterInterpreterStateStore } from './jupyterInterpreterStateStore';
 import { JupyterInterpreterDependencyResponse } from '../types';
 import { DataScience } from '../../../platform/common/utils/localize';
 import { IDisposableRegistry } from '../../../platform/common/types';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 /**
  * Manages picking an interpreter that can run jupyter.
@@ -163,7 +164,7 @@ export class JupyterInterpreterService {
     private changeSelectedInterpreterProperty(interpreter: PythonEnvironment) {
         this._selectedInterpreter = interpreter;
         this._onDidChangeInterpreter.fire(interpreter);
-        this.interpreterSelectionState.updateSelectedPythonPath(interpreter.uri);
+        this.interpreterSelectionState.updateSelectedPythonPath(getEnvironmentExecutable(interpreter));
     }
 
     // For a given python path check if it can run jupyter for us
@@ -193,7 +194,6 @@ export class JupyterInterpreterService {
 
     private async getInitialInterpreterImpl(token?: CancellationToken): Promise<PythonEnvironment | undefined> {
         let interpreter: PythonEnvironment | undefined;
-
         // Next check the saved global path
         if (this.interpreterSelectionState.selectedPythonPath) {
             interpreter = await this.validateInterpreterPath(this.interpreterSelectionState.selectedPythonPath, token);

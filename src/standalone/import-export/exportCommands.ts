@@ -17,7 +17,6 @@ import { traceInfo } from '../../platform/logging';
 import { IDisposable } from '../../platform/common/types';
 import { DataScience } from '../../platform/common/utils/localize';
 import { isUri, noop } from '../../platform/common/utils/misc';
-import { PythonEnvironment } from '../../platform/pythonEnvironments/info';
 import { sendTelemetryEvent } from '../../telemetry';
 import { Commands, Telemetry } from '../../platform/common/constants';
 import { IFileConverter, ExportFormat } from '../../notebooks/export/types';
@@ -83,7 +82,7 @@ export class ExportCommands implements IDisposable {
             : window.activeNotebookEditor?.notebook;
 
         if (document) {
-            let preferredInterpreter: PythonEnvironment | undefined;
+            let preferredInterpreter: { id: string } | undefined;
             const pythonEnvFinder = this.kernelFinder.registered.find(
                 (item) => item.kind === ContributedKernelFinderKind.LocalPythonEnvironment
             );
@@ -109,7 +108,7 @@ export class ExportCommands implements IDisposable {
         sourceDocument?: NotebookDocument,
         exportMethod?: ExportFormat,
         defaultFileName?: string,
-        interpreter?: PythonEnvironment
+        interpreter?: { id: string }
     ) {
         if (!sourceDocument) {
             // if no source document was passed then this was called from the command palette,
@@ -148,7 +147,7 @@ export class ExportCommands implements IDisposable {
     private getExportQuickPickItems(
         sourceDocument: NotebookDocument,
         defaultFileName?: string,
-        interpreter?: PythonEnvironment
+        interpreter?: { id: string }
     ): IExportQuickPickItem[] {
         const items: IExportQuickPickItem[] = [];
 
@@ -202,7 +201,7 @@ export class ExportCommands implements IDisposable {
     private async showExportQuickPickMenu(
         sourceDocument: NotebookDocument,
         defaultFileName?: string,
-        interpreter?: PythonEnvironment
+        interpreter?: { id: string }
     ): Promise<IExportQuickPickItem | undefined> {
         const items = this.getExportQuickPickItems(sourceDocument, defaultFileName, interpreter);
 

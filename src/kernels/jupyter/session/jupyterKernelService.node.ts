@@ -28,6 +28,7 @@ import { IJupyterKernelService } from '../types';
 import { arePathsSame } from '../../../platform/common/platform/fileUtils';
 import { KernelEnvironmentVariablesService } from '../../raw/launcher/kernelEnvVarsService.node';
 import { isKernelLaunchedViaLocalPythonIPyKernel } from '../../helpers.node';
+import { getEnvironmentExecutable } from '../../../platform/interpreter/helpers';
 
 /**
  * Responsible for registering and updating kernels in a non ZMQ situation (kernel specs)
@@ -231,12 +232,15 @@ export class JupyterKernelService implements IJupyterKernelService {
                 if (specModel.metadata?.interpreter) {
                     // Ensure we use a fully qualified path to the python interpreter in `argv`.
                     if (isKernelLaunchedViaLocalPythonIPyKernel(kernel)) {
+                        const executable = getEnvironmentExecutable(interpreter);
                         traceVerbose(
                             `Python KernelSpec argv[0] updated for ${kernelConnection.id} from '${
                                 specModel.argv[0]
-                            }' to '${getDisplayPath(interpreter.uri)}'`
+                            }' to '${getDisplayPath(executable)}'`
                         );
-                        specModel.argv[0] = interpreter.uri.fsPath;
+                        if (executable) {
+                            specModel.argv[0] = executable.fsPath;
+                        }
                     }
 
                     // Ensure we update the metadata to include interpreter stuff as well (we'll use this to search kernels that match an interpreter).

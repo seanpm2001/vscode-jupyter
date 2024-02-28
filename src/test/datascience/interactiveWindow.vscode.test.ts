@@ -37,9 +37,9 @@ import { IInterpreterService } from '../../platform/interpreter/contracts';
 import { areInterpreterPathsSame } from '../../platform/pythonEnvironments/info/interpreter';
 import { IPythonApiProvider } from '../../platform/api/types';
 import { isEqual } from '../../platform/vscode-path/resources';
-import { PythonEnvironment } from '../../platform/pythonEnvironments/info';
 import { Commands } from '../../platform/common/constants';
 import { IControllerRegistration } from '../../notebooks/controllers/types';
+import { getEnvironmentExecutable } from '../../platform/interpreter/helpers';
 
 suite(`Interactive window Execution @iw`, async function () {
     this.timeout(120_000);
@@ -49,7 +49,7 @@ suite(`Interactive window Execution @iw`, async function () {
     let venNoKernelPath: vscode.Uri;
     let venvKernelPath: vscode.Uri;
     let pythonApiProvider: IPythonApiProvider;
-    let originalActiveInterpreter: PythonEnvironment | undefined;
+    let originalActiveInterpreter: { id: string } | undefined;
     setup(async function () {
         traceInfo(`Start Test ${this.currentTest?.title}`);
         api = await initialize();
@@ -77,25 +77,33 @@ suite(`Interactive window Execution @iw`, async function () {
         const interpreters = interpreterService.resolvedEnvironments;
         await waitForCondition(
             () => {
-                const venvNoKernelInterpreter = interpreters.find((i) => getFilePath(i.uri).includes('.venvnokernel'));
-                const venvKernelInterpreter = interpreters.find((i) => getFilePath(i.uri).includes('.venvkernel'));
+                const venvNoKernelInterpreter = interpreters.find((i) =>
+                    getFilePath(getEnvironmentExecutable(i)).includes('.venvnokernel')
+                );
+                const venvKernelInterpreter = interpreters.find((i) =>
+                    getFilePath(getEnvironmentExecutable(i)).includes('.venvkernel')
+                );
                 return venvNoKernelInterpreter && venvKernelInterpreter ? true : false;
             },
             defaultNotebookTestTimeout,
             'Waiting for interpreters to be discovered'
         );
-        const venvNoKernelInterpreter = interpreters.find((i) => getFilePath(i.uri).includes('.venvnokernel'));
-        const venvKernelInterpreter = interpreters.find((i) => getFilePath(i.uri).includes('.venvkernel'));
+        const venvNoKernelInterpreter = interpreters.find((i) =>
+            getFilePath(getEnvironmentExecutable(i)).includes('.venvnokernel')
+        );
+        const venvKernelInterpreter = interpreters.find((i) =>
+            getFilePath(getEnvironmentExecutable(i)).includes('.venvkernel')
+        );
 
         if (!venvNoKernelInterpreter || !venvKernelInterpreter) {
             throw new Error(
                 `Unable to find matching kernels. List of kernels is ${interpreters
-                    .map((i) => getFilePath(i.uri))
+                    .map((i) => getFilePath(getEnvironmentExecutable(i)))
                     .join('\n')}`
             );
         }
-        venNoKernelPath = venvNoKernelInterpreter.uri;
-        venvKernelPath = venvKernelInterpreter.uri;
+        venNoKernelPath = getEnvironmentExecutable(venvNoKernelInterpreter)!;
+        venvKernelPath = getEnvironmentExecutable(venvKernelInterpreter)!;
         originalActiveInterpreter = await interpreterService.getActiveInterpreter();
 
         // No kernel should not have ipykernel in it yet, but we need two, so install it.
@@ -104,7 +112,7 @@ suite(`Interactive window Execution @iw`, async function () {
     }
     async function postSwitch() {
         await uninstallIPyKernel(venNoKernelPath.fsPath);
-        await setActiveInterpreter(pythonApiProvider, undefined, originalActiveInterpreter?.uri);
+        await setActiveInterpreter(pythonApiProvider, undefined, getEnvironmentExecutable(originalActiveInterpreter));
         await vscode.commands.executeCommand('python.clearWorkspaceInterpreter');
     }
 
@@ -172,16 +180,20 @@ suite(`Interactive window Execution @iw`, async function () {
 
             let controller = notebookDocument ? notebookControllerManager.getSelected(notebookDocument) : undefined;
             assert.ok(
-                areInterpreterPathsSame(controller?.connection.interpreter?.uri, activeInterpreter?.uri),
+                areInterpreterPathsSame(
+                    getEnvironmentExecutable(controller?.connection.interpreter),
+                    getEnvironmentExecutable(activeInterpreter)
+                ),
                 `Controller does not match active interpreter for ${getDisplayPath(
                     notebookDocument?.uri
-                )} - active: ${activeInterpreter?.uri} controller: ${getDisplayPath(
-                    controller?.connection?.interpreter?.uri
+                )} - active: ${getEnvironmentExecutable(activeInterpreter)} controller: ${getDisplayPath(
+                    getEnvironmentExecutable(controller?.connection?.interpreter) ||
+                        controller?.connection?.interpreter?.id
                 )}`
             );
 
             // Now switch the active interpreter to the other path
-            if (isEqual(activeInterpreter?.uri, venNoKernelPath)) {
+            if (isEqual(getEnvironmentExecutable(activeInterpreter), venNoKernelPath)) {
                 await setActiveInterpreter(pythonApiProvider, untitledPythonFile.uri, venvKernelPath);
             } else {
                 await setActiveInterpreter(pythonApiProvider, untitledPythonFile.uri, venNoKernelPath);
@@ -205,7 +217,10 @@ suite(`Interactive window Execution @iw`, async function () {
 
             // Controller path should not be the same as the old active interpreter
             assert.isFalse(
-                areInterpreterPathsSame(controller?.connection.interpreter?.uri, activeInterpreter?.uri),
+                areInterpreterPathsSame(
+                    getEnvironmentExecutable(controller?.connection.interpreter),
+                    getEnvironmentExecutable(activeInterpreter)
+                ),
                 `Controller should not match active interpreter for ${getDisplayPath(
                     notebookDocument?.uri
                 )} after changing active interpreter`

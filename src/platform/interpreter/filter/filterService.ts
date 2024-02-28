@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import { inject, injectable } from 'inversify';
-import { EventEmitter, Uri, workspace } from 'vscode';
+import { EventEmitter, workspace } from 'vscode';
 import { dispose } from '../../common/utils/lifecycle';
 import { IDisposable, IDisposableRegistry } from '../../common/types';
 import { sendTelemetryEvent } from '../../../telemetry';
@@ -10,6 +10,7 @@ import { Telemetry, isWebExtension } from '../../common/constants';
 import { getDisplayPath } from '../../common/platform/fs-paths';
 import { traceVerbose } from '../../logging';
 import { Environment } from '@vscode/python-extension';
+import { getCachedEnvironment, getEnvironmentExecutable } from '../helpers';
 
 /**
  * Determine whether a Python environment should be excluded from the Kernel filter.
@@ -37,14 +38,15 @@ export class PythonEnvironmentFilter implements IDisposable {
         this._onDidChange.dispose();
         dispose(this.disposables);
     }
-    public isPythonEnvironmentExcluded(interpreter: { uri: Uri; envPath?: Uri } | Environment): boolean {
+    public isPythonEnvironmentExcluded(interpreter: { id: string }): boolean {
         if (isWebExtension()) {
             return false;
         }
         const hiddenList = this.getExcludedPythonEnvironments();
         const hidden = isPythonEnvInListOfHiddenEnvs(interpreter, hiddenList);
-        const interpreterUri = 'uri' in interpreter ? interpreter.uri : interpreter.executable.uri;
+        const env = getCachedEnvironment(interpreter);
         if (hidden) {
+            const interpreterUri = env?.executable?.uri;
             sendTelemetryEvent(Telemetry.JupyterKernelHiddenViaFilter);
             traceVerbose(`Python Env hidden via filter: ${getDisplayPath(interpreterUri)}`);
         }
@@ -71,11 +73,12 @@ export class PythonEnvironmentFilter implements IDisposable {
 }
 
 export function isPythonEnvInListOfHiddenEnvs(
-    interpreter: { uri: Uri; envPath?: Uri } | Environment,
+    interpreter: { id: string } | Environment,
     hiddenList: string[]
 ): boolean {
-    const envFolderUri = 'uri' in interpreter ? interpreter.envPath : interpreter.environment?.folderUri;
-    const interpreterUri = 'uri' in interpreter ? interpreter.uri : interpreter.executable.uri;
+    const env = getCachedEnvironment(interpreter);
+    const envFolderUri = env?.environment?.folderUri;
+    const interpreterUri = getEnvironmentExecutable(interpreter);
     if (!interpreterUri && !envFolderUri) {
         return false;
     }

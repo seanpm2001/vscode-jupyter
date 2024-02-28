@@ -92,7 +92,7 @@ suite('Remote Kernel Execution', function () {
     suiteTeardown(() => closeNotebooksAndCleanUpAfterTests(disposables));
     test('Local Kernel state is not lost when connecting to remote', async function () {
         const activeInterpreter = await interpreterService.getActiveInterpreter();
-        traceInfoIfCI(`active interpreter ${activeInterpreter?.uri.path}`);
+        traceInfoIfCI(`active interpreter ${activeInterpreter?.id}`);
         const { notebook } = await createEmptyPythonNotebook(disposables);
         const controllerManager = svcContainer.get<IControllerRegistration>(IControllerRegistration);
         const preferredController = controllerManager.getSelected(notebook);

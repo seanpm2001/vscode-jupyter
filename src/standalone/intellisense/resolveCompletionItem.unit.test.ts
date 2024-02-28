@@ -43,6 +43,7 @@ import { setPythonApi } from '../../platform/interpreter/helpers';
 import type { Output } from '../../api';
 import { executionCounters } from '../api/kernels/backgroundExecution';
 import { cellOutputToVSCCellOutput } from '../../kernels/execution/helpers';
+import { crateMockedPythonApi, whenKnownEnvironments } from '../../kernels/helpers.unit.test';
 
 suite('Jupyter Kernel Completion (requestInspect)', () => {
     let kernel: IKernel;
@@ -55,30 +56,35 @@ suite('Jupyter Kernel Completion (requestInspect)', () => {
     let disposables: IDisposable[] = [];
     let toDispose: DisposableStore;
     let clock: fakeTimers.InstalledClock;
-    const pythonKernel = PythonKernelConnectionMetadata.create({
-        id: 'pythonId',
-        interpreter: {
-            id: 'pythonId',
-            uri: Uri.file('python')
-        },
-        kernelSpec: {
-            argv: ['python', '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
-            display_name: 'Python 3',
-            executable: 'python',
-            name: 'python3'
-        }
-    });
-    const nonPythonKernel = LocalKernelSpecConnectionMetadata.create({
-        id: 'java',
-        kernelSpec: {
-            argv: ['java'],
-            display_name: 'Java',
-            executable: 'java',
-            name: 'java'
-        }
-    });
+    let pythonKernel: PythonKernelConnectionMetadata;
+    let nonPythonKernel: LocalKernelSpecConnectionMetadata;
     let kernelStatusChangedSignal: Signal<Kernel.IKernelConnection, Kernel.Status>;
     setup(() => {
+        const environments = crateMockedPythonApi(disposables).environments;
+        whenKnownEnvironments(environments).thenReturn([]);
+
+        pythonKernel = PythonKernelConnectionMetadata.create({
+            id: 'pythonId',
+            interpreter: {
+                id: 'pythonId'
+            },
+            kernelSpec: {
+                argv: ['python', '-m', 'ipykernel_launcher', '-f', '{connection_file}'],
+                display_name: 'Python 3',
+                executable: 'python',
+                name: 'python3'
+            }
+        });
+        nonPythonKernel = LocalKernelSpecConnectionMetadata.create({
+            id: 'java',
+            kernelSpec: {
+                argv: ['java'],
+                display_name: 'Java',
+                executable: 'java',
+                name: 'java'
+            }
+        });
+
         kernelConnection = mock<Kernel.IKernelConnection>();
         kernel = mock<IKernel>();
         kernelId = uuid();

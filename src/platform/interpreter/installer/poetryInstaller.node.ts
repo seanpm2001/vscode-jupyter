@@ -11,7 +11,7 @@ import { isPoetryEnvironmentRelatedToFolder } from './poetry.node';
 import { ModuleInstallerType } from './types';
 import { Environment } from '@vscode/python-extension';
 import { Uri } from 'vscode';
-import { getEnvironmentType } from '../helpers';
+import { getEnvironmentExecutable, getEnvironmentType } from '../helpers';
 
 export const poetryName = 'poetry';
 
@@ -54,16 +54,15 @@ export class PoetryInstaller extends ModuleInstaller {
 
         const folder = getInterpreterWorkspaceFolder(interpreter);
         if (folder) {
-            const executable =
-                'executable' in interpreter
-                    ? interpreter.executable.uri || Uri.file(interpreter.path)
-                    : interpreter.uri;
+            const executable = getEnvironmentExecutable(interpreter);
             // Install using poetry CLI only if the active poetry environment is related to the current folder.
-            return isPoetryEnvironmentRelatedToFolder(
-                executable.fsPath,
-                folder.fsPath,
-                this.configurationService.getSettings(undefined).poetryPath
-            );
+            return executable
+                ? isPoetryEnvironmentRelatedToFolder(
+                      executable.fsPath,
+                      folder.fsPath,
+                      this.configurationService.getSettings(undefined).poetryPath
+                  )
+                : false;
         }
 
         return false;

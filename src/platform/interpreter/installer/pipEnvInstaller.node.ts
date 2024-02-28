@@ -13,7 +13,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { getFilePath } from '../../common/platform/fs-paths';
 import { getInterpreterWorkspaceFolder } from './helpers';
 import { Environment } from '@vscode/python-extension';
-import { getEnvironmentType } from '../helpers';
+import { getEnvironmentExecutable, getEnvironmentType } from '../helpers';
 import { workspace } from 'vscode';
 
 export const pipenvName = 'pipenv';
@@ -51,7 +51,8 @@ export class PipEnvInstaller extends ModuleInstaller {
                 return false;
             }
             // Install using `pipenv install` only if the active environment is related to the current folder.
-            return isPipenvEnvironmentRelatedToFolder(interpreter.uri, workspaceFolder.uri);
+            const executable = getEnvironmentExecutable(interpreter);
+            return executable ? isPipenvEnvironmentRelatedToFolder(executable, workspaceFolder.uri) : false;
         } else {
             return getEnvironmentType(resource) === EnvironmentType.Pipenv;
         }

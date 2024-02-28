@@ -25,6 +25,7 @@ import {
 } from './interpreterKernelSpecFinderHelper.node';
 import { getDisplayPath } from '../../../platform/common/platform/fs-paths.node';
 import { raceCancellation } from '../../../platform/common/cancellation';
+import { getCachedEnvironments } from '../../../platform/interpreter/helpers';
 
 type InterpreterId = string;
 
@@ -120,6 +121,7 @@ export class LocalPythonAndRelatedNonPythonKernelSpecFinder extends LocalKernelS
                     // Its possible we have already started discovering via Python API,
                     // Hence don't override what we have.
                     // Give preference to what is already in the cache.
+                    console.error(`cache`, kernels);
                     kernels
                         .filter((item) => !this._kernels.has(item.id))
                         .forEach((item) => {
@@ -215,7 +217,7 @@ export class LocalPythonAndRelatedNonPythonKernelSpecFinder extends LocalKernelS
                 // It is also possible the user deleted a python environment,
                 // E.g. user deleted a conda env or a virtual env and they refreshed the list of interpreters/kernels.
                 // We should now remove those kernels as well.
-                const validInterpreterIds = new Set(this.interpreterService.resolvedEnvironments.map((i) => i.id));
+                const validInterpreterIds = new Set(getCachedEnvironments().map((i) => i.id));
                 const kernelsThatPointToInvalidValidInterpreters = Array.from(this._kernels.values()).filter((item) => {
                     if (item.interpreter && !validInterpreterIds.has(item.interpreter.id)) {
                         return true;
@@ -277,13 +279,12 @@ export class LocalPythonAndRelatedNonPythonKernelSpecFinder extends LocalKernelS
     }
 
     private async listKernelsImplementation(cancelToken: CancellationToken, forceRefresh: boolean) {
-        const interpreters = this.extensionChecker.isPythonExtensionInstalled
-            ? this.interpreterService.resolvedEnvironments
-            : [];
+        const interpreters = this.extensionChecker.isPythonExtensionInstalled ? getCachedEnvironments() : [];
         const interpreterPromise = Promise.all(
             interpreters.map(async (interpreter) => {
                 let finder = this.interpreterKernelSpecs.get(interpreter.id);
                 if (!finder) {
+                    console.error('Create Finder', interpreter.id);
                     finder = new InterpreterSpecificKernelSpecsFinder(
                         interpreter,
                         this.interpreterService,
@@ -296,6 +297,7 @@ export class LocalPythonAndRelatedNonPythonKernelSpecFinder extends LocalKernelS
                     finder.onDidChangeKernels(
                         (e) => {
                             e.removed.forEach((item) => this._kernels.delete(item.id));
+                            console.error('onDidChangeKernels');
                             void this.appendNewKernels(e.added);
                             if (!e.added.length && e.removed.length) {
                                 void this.updateCache();
@@ -324,6 +326,10 @@ export class LocalPythonAndRelatedNonPythonKernelSpecFinder extends LocalKernelS
         if (!kernels.length) {
             return;
         }
+        console.error(
+            'Append New Kernels',
+            kernels.map((k) => k.id)
+        );
         kernels.forEach((kernel) => {
             if (isLocalConnection(kernel) && kernel.kernelSpec.specFile) {
                 this._kernelsExcludingCachedItems.set(kernel.id, kernel);

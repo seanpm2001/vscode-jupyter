@@ -3,7 +3,6 @@
 
 import { Uri } from 'vscode';
 import { IDisposable, InterpreterUri, Resource } from '../../platform/common/types';
-import { PythonEnvironment } from '../pythonEnvironments/info';
 
 export const IReservedPythonNamedProvider = Symbol('IReservedPythonNamedProvider');
 export interface IReservedPythonNamedProvider extends IDisposable {
@@ -18,13 +17,13 @@ export interface IReservedPythonNamedProvider extends IDisposable {
 export const IInterpreterPackages = Symbol('IInterpreterPackages');
 export interface IInterpreterPackages {
     listPackages(resource?: Resource): Promise<string[]>;
-    getPackageVersions(interpreter: PythonEnvironment): Promise<Map<string, string>>;
-    getPackageVersion(interpreter: PythonEnvironment, packageName: string): Promise<string | undefined>;
+    getPackageVersions(interpreter: { id: string }): Promise<Map<string, string>>;
+    getPackageVersion(interpreter: { id: string }, packageName: string): Promise<string | undefined>;
     trackPackages(interpreterUri: InterpreterUri, ignoreCache?: boolean): void;
 }
 
 export const IWorkspaceInterpreterTracker = Symbol('IWorkspaceInterpreterTracker');
 export interface IWorkspaceInterpreterTracker {
     activate(): void;
-    isActiveWorkspaceInterpreter(resource: Resource, interpreter?: PythonEnvironment): boolean;
+    isActiveWorkspaceInterpreter(resource: Resource, interpreter?: { id: string }): boolean;
 }

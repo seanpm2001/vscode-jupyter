@@ -18,7 +18,7 @@ export interface IInterpreterService {
     /**
      * Contains details of all the currently discovered Python Environments along with all of their resolved information.
      */
-    readonly resolvedEnvironments: PythonEnvironment[];
+    readonly resolvedEnvironments: { id: string }[];
     /**
      * Pause detection of Python environments until the token is cancelled.
      * After the token is cancelled, detection will resume and pending events will be triggered.
@@ -39,6 +39,10 @@ export interface IInterpreterService {
             | {
                   /** Environment Path */
                   path: string;
+              }
+            | {
+                  /** Environment Path */
+                  id: string;
               }
             | InterpreterId,
         token?: CancellationToken

@@ -37,6 +37,7 @@ import { getOSType, OSType } from '../common/utils/platform';
 import { SemVer } from 'semver';
 import {
     getCachedVersion,
+    getEnvironmentExecutable,
     getEnvironmentType,
     getPythonEnvDisplayName,
     getPythonEnvironmentName,
@@ -48,12 +49,11 @@ import { getWorkspaceFolderIdentifier } from '../common/application/workspace.ba
 export function deserializePythonEnvironment(
     pythonVersion: Partial<PythonEnvironment_PythonApi> | undefined,
     pythonEnvId: string
-): PythonEnvironment | undefined {
+): { id: string } | undefined {
     if (pythonVersion) {
         const result = {
             ...pythonVersion,
-            uri: Uri.file(pythonVersion.path || ''),
-            id: pythonEnvId || (pythonVersion as any).id
+            id: pythonVersion.path || pythonEnvId || (pythonVersion as any).id
         };
 
         // Cleanup stuff that shouldn't be there.
@@ -84,35 +84,14 @@ export function resolvedPythonEnvToJupyterEnv(env: ResolvedEnvironment): PythonE
         uri
     };
 }
-export function pythonEnvToJupyterEnv(env: Environment): PythonEnvironment | undefined {
-    let uri: Uri;
-    let id = env.id;
-    if (!env.executable.uri) {
-        if (getEnvironmentType(env) === EnvironmentType.Conda) {
-            uri =
-                getOSType() === OSType.Windows
-                    ? Uri.joinPath(env.environment?.folderUri || Uri.file(env.path), 'python.exe')
-                    : Uri.joinPath(env.environment?.folderUri || Uri.file(env.path), 'bin', 'python');
-        } else {
-            traceWarning(`Python environment ${getDisplayPath(env.id)} excluded as Uri is undefined`);
-            return;
-        }
-    } else {
-        uri = env.executable.uri;
-    }
-
-    return {
-        id,
-        uri
-    };
-}
 
 export function serializePythonEnvironment(
-    jupyterVersion: PythonEnvironment | undefined
+    jupyterVersion: { id: string } | undefined
 ): PythonEnvironment_PythonApi | undefined {
     if (jupyterVersion) {
+        const uri = getEnvironmentExecutable(jupyterVersion);
         const result = Object.assign({}, jupyterVersion, {
-            path: getFilePath(jupyterVersion.uri)
+            path: getFilePath(uri)
         });
         // Cleanup stuff that shouldn't be there.
         delete (result as any).uri;
@@ -746,7 +725,7 @@ export class InterpreterService implements IInterpreterService {
                 .map(
                     (item) =>
                         `${item.id}:${getPythonEnvDisplayName(item)}:${getEnvironmentType(item)}:${getDisplayPath(
-                            item.uri
+                            getEnvironmentExecutable(item)
                         )}`
                 )
                 .join(', ')}`
