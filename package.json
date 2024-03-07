@@ -498,6 +498,12 @@
                 "enablement": "isWorkspaceTrusted && !jupyter.webExtension"
             },
             {
+                "command": "jupyter.openCellFailureSuggestions",
+                "title": "%jupyter.command.jupyter.openFailureDiagnostics%",
+                "category": "Jupyter",
+                "enablement": "isWorkspaceTrusted"
+            },
+            {
                 "command": "jupyter.execSelectionInteractive",
                 "title": "%jupyter.command.jupyter.execSelectionInteractive.title%",
                 "category": "Jupyter",
@@ -1202,6 +1208,12 @@
                     "title": "%jupyter.command.jupyter.debugcurrentcell.palette.title%",
                     "category": "Jupyter",
                     "when": "editorLangId == python && jupyter.hascodecells && isWorkspaceTrusted"
+                },
+                {
+                    "command": "jupyter.openCellFailureSuggestions",
+                    "title": "%jupyter.command.jupyter.openFailureDiagnostics%",
+                    "category": "Jupyter",
+                    "when": "isWorkspaceTrusted"
                 },
                 {
                     "command": "jupyter.createnewinteractive",

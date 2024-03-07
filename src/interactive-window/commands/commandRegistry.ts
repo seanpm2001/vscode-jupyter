@@ -207,6 +207,7 @@ export class CommandRegistry implements IDisposable, IExtensionSyncActivationSer
         this.registerCommand(Commands.RunFromLine, this.runFromLine);
         this.registerCommand(Commands.RunFileInInteractiveWindows, this.runFileInteractive);
         this.registerCommand(Commands.DebugFileInInteractiveWindows, this.debugFileInteractive);
+        this.registerCommand(Commands.OpenCellFailureSuggestions, this.openCellFailureSuggestions);
     }
     private registerCommand<
         E extends keyof ICommandNameArgumentTypeMapping,
@@ -290,6 +291,12 @@ export class CommandRegistry implements IDisposable, IExtensionSyncActivationSer
         } else {
             return;
         }
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private async openCellFailureSuggestions(): Promise<void> {
+        const selection = window.activeNotebookEditor?.selection;
+        console.log(JSON.stringify(context));
     }
 
     // Note: see codewatcher.ts where the runcell command args are attached. The reason we don't have any

@@ -175,6 +175,7 @@ export namespace Commands {
     export const RunCell = 'jupyter.runcell';
     export const RunCurrentCell = 'jupyter.runcurrentcell';
     export const RunCurrentCellAdvance = 'jupyter.runcurrentcelladvance';
+    export const OpenCellFailureSuggestions = 'jupyter.openCellFailureSuggestions';
     export const CreateNewInteractive = 'jupyter.createnewinteractive';
     export const ImportNotebook = 'jupyter.importnotebook';
     export const ImportNotebookFile = 'jupyter.importnotebookfile';

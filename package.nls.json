@@ -72,6 +72,7 @@
     "jupyter.command.jupyter.runcurrentcelladvance.title": "Run Current Cell And Advance",
     "jupyter.command.jupyter.execSelectionInteractive.title": "Run Selection/Line in Interactive Window",
     "jupyter.command.jupyter.runcell.title": "Run Cell",
+    "jupyter.command.jupyter.openFailureDiagnostics": "Go to failure diagnostic",
     "jupyter.command.jupyter.insertCellBelowPosition.title": "Insert Cell Below Position",
     "jupyter.command.jupyter.insertCellBelow.title": "Insert Cell Below",
     "jupyter.command.jupyter.insertCellAbove.title": "Insert Cell Above",
