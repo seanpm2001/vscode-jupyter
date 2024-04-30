@@ -32,7 +32,6 @@ import { computeWorkingDirectory } from '../../../platform/common/application/wo
 export class JupyterServerHelper implements IJupyterServerHelper {
     private usablePythonInterpreter: PythonEnvironment | undefined;
     private cache?: Promise<IJupyterConnection>;
-    private disposed: boolean = false;
     private _disposed = false;
     constructor(
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
@@ -61,11 +60,8 @@ export class JupyterServerHelper implements IJupyterServerHelper {
     }
 
     public async dispose(): Promise<void> {
-        traceInfo(`Disposing HostJupyterExecution`);
         if (!this._disposed) {
             this._disposed = true;
-            traceVerbose(`Disposing super HostJupyterExecution`);
-            this.disposed = true;
 
             // Cleanup on dispose. We are going away permanently
             traceVerbose(`Cleaning up server cache`);
@@ -107,7 +103,7 @@ export class JupyterServerHelper implements IJupyterServerHelper {
 
     public async getUsableJupyterPython(cancelToken?: CancellationToken): Promise<PythonEnvironment | undefined> {
         // Only try to compute this once.
-        if (!this.usablePythonInterpreter && !this.disposed && this.jupyterInterpreterService) {
+        if (!this.usablePythonInterpreter && !this._disposed && this.jupyterInterpreterService) {
             this.usablePythonInterpreter = await raceCancellationError(
                 cancelToken,
                 this.jupyterInterpreterService!.getSelectedInterpreter(cancelToken)
@@ -125,7 +121,7 @@ export class JupyterServerHelper implements IJupyterServerHelper {
             let tryCount = 1;
             const maxTries = Math.max(1, this.configuration.getSettings(undefined).jupyterLaunchRetries);
             let lastTryError: Error;
-            while (tryCount <= maxTries && !this.disposed) {
+            while (tryCount <= maxTries && !this._disposed) {
                 try {
                     // Start or connect to the process
                     connection = await this.startImpl(resource, cancelToken);
@@ -144,7 +140,7 @@ export class JupyterServerHelper implements IJupyterServerHelper {
                         tryCount += 1;
                     } else if (connection) {
                         // If this is occurring during shutdown, don't worry about it.
-                        if (this.disposed) {
+                        if (this._disposed) {
                             throw err;
                         }
                         throw err;
