@@ -90,16 +90,17 @@ suite('Smoke Tests', function () {
         await vscode.commands.executeCommand<void>('notebook.execute');
 
         await new Promise<void>((resolve) => {
-            const disposable = vscode.notebooks.onDidChangeNotebookCellExecutionState((e) => {
-                if (
-                    e.cell.outputs.length > 0 &&
-                    e.cell.outputs.some((o) =>
-                        o.items.some((i) => Buffer.from(i.data).toString('utf-8').includes('Hello World'))
-                    )
-                ) {
-                    disposable.dispose();
-                    resolve();
-                }
+            const disposable = vscode.workspace.onDidChangeNotebookDocument((e) => {
+                e.cellChanges.forEach((change) => {
+                    if (
+                        change.outputs?.some((o) =>
+                            o.items.some((i) => Buffer.from(i.data).toString('utf-8').includes('Hello World'))
+                        )
+                    ) {
+                        disposable.dispose();
+                        resolve();
+                    }
+                });
             });
         });
     }).timeout(timeoutForCellToRun);
