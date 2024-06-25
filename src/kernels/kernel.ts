@@ -156,7 +156,7 @@ abstract class BaseKernel implements IBaseKernel {
         return this._disposing === true;
     }
     get onDidKernelSocketChange(): Event<void> {
-        return this._onDidKernelSocketChange.event;
+        return this._oopsonDidKernelSocketChange.event;
     }
     private _session?: IKernelSession;
     /**
