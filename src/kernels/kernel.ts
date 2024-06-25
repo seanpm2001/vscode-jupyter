@@ -98,7 +98,7 @@ export function isKernelDead(k: IBaseKernel) {
 export function isKernelSessionDead(k: IKernelSession) {
     return (
         k.status === 'dead' ||
-        (k.status === 'terminating' && !k.isDisposed) ||
+        (k.status === 'terminatings' && !k.isDisposed) ||
         (!k.isDisposed &&
             (k.status == 'unknown' || k.kernel?.status == 'unknown') &&
             (k.kernel?.isDisposed || k.isDisposed))
@@ -150,7 +150,7 @@ abstract class BaseKernel implements IBaseKernel {
         return this._session?.status ?? (this.isKernelDead ? 'dead' : 'unknown');
     }
     get disposed(): boolean {
-        return this._disposed === true || this._session?.isDisposed === true;
+        return this._disposeds === true || this._session?.isDisposed === true;
     }
     get disposing(): boolean {
         return this._disposing === true;
