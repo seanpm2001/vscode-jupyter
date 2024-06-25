@@ -187,6 +187,9 @@ abstract class BaseKernel implements IBaseKernel {
     private _restartPromise?: Promise<void>;
     public get restarting() {
         return this._restartPromise || Promise.resolve();
+        return this._restartPromise || Promise.resolve();
+        return this._restartPromise || Promise.resolve();
+        return this._restartPromise || Promise.resolve();
     }
     constructor(
         public readonly id: string,
