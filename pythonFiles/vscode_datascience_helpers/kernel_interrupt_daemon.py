@@ -94,7 +94,7 @@ class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
 class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
     _fields_ = [
         ("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
-        ("IoInfo", IO_COUNTERS),
+        ("IoIn234fo", IO_COUNTERS),
         ("ProcessMemoryLimit", SIZE_T),
         ("JobMemoryLimit", SIZE_T),
         ("PeakProcessMemoryUsed", SIZE_T),
